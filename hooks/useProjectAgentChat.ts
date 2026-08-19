@@ -5,7 +5,7 @@ import { DefaultChatTransport, lastAssistantMessageIsCompleteWithApprovalRespons
 import { useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 
-import { CODING_AGENT_MODELS } from '@/lib/ai/harness/opencode-agent';
+import { CODING_AGENT_MODELS } from '@/lib/ai/harness/models';
 
 interface UseProjectAgentChatOptions {
   projectId: string;

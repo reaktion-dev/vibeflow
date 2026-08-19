@@ -3,6 +3,7 @@ import { createOpenCode } from '@ai-sdk/harness-opencode';
 import { createVercelSandbox } from '@ai-sdk/sandbox-vercel';
 
 import { getAuthorizedProjectFile, listAuthorizedProjectFiles } from '@/lib/projects/server';
+import { CODING_AGENT_MODELS } from '@/lib/ai/harness/models';
 
 /**
  * Vibeflow Coding Agent powered by HarnessAgent + OpenCode + Vercel Sandbox.
@@ -107,12 +108,10 @@ export const codingAgent = new HarnessAgent({
 /**
  * Available models for the coding agent.
  * These match the models configured in lib/ai/models.ts.
+ *
+ * Re-exported from the client-safe `models.ts` so server consumers that already
+ * import from this module continue to work. Client components should import
+ * CODING_AGENT_MODELS directly from `@/lib/ai/harness/models` to avoid pulling
+ * server-only SDKs into the client bundle.
  */
-export const CODING_AGENT_MODELS = [
-  { id: 'anthropic/claude-sonnet-4-6', name: 'Claude Sonnet 4', provider: 'Anthropic' },
-  { id: 'nvidia/nemotron-3-ultra-550b-a55b:free', name: 'Nemotron 3 Ultra (550B)', provider: 'OpenRouter', free: true },
-  { id: 'nvidia/nemotron-3.5-lightning:free', name: 'Nemotron 3.5 Lightning', provider: 'OpenRouter', free: true },
-  { id: 'poolside/laguna-s-2.1:free', name: 'Poolside Laguna S', provider: 'OpenRouter', free: true },
-  { id: 'cohere/north-mini-code:free', name: 'Cohere North Mini Code', provider: 'OpenRouter', free: true },
-  { id: 'openrouter/free', name: 'Free Models Router', provider: 'OpenRouter', free: true },
-];
+export { CODING_AGENT_MODELS } from '@/lib/ai/harness/models';
