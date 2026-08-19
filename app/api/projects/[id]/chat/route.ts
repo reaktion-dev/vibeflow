@@ -13,6 +13,7 @@ import { eq, and, desc } from 'drizzle-orm';
 import { codingAgent } from '@/lib/ai/harness/opencode-agent';
 import { resumeOrCreateSession, detachAndPersist } from '@/lib/ai/harness/session-store';
 import { getHarnessErrorMessage } from '@ai-sdk/harness/agent';
+import { createContentAgent } from '@/lib/ai/agents/content-agent';
 import { getAuthorizedProject } from '@/lib/projects/server';
 import { runWithToolContext } from '@/lib/ai/harness/tools/context';
 import { db } from '@/lib/db';
@@ -168,7 +169,14 @@ export async function GET(request: NextRequest, { params }: Params) {
 
 /**
  * POST /api/projects/[id]/chat
- * Stream a HarnessAgent (OpenCode) response with session resume/detach.
+ *
+ * Routes to the correct agent based on project type:
+ * - `code` → HarnessAgent (OpenCode + Firecracker sandbox, session resume/detach)
+ * - `design`/`video`/`flow` → ToolLoopAgent (host-side, no sandbox)
+ *
+ * Both agent types stream UIMessage parts via toUIMessageStream and support
+ * toolApproval for paid tools. The content agent uses AsyncLocalStorage
+ * (runWithToolContext) for projectId/userId/projectType propagation.
  */
 export async function POST(request: NextRequest, { params }: Params) {
   try {
@@ -191,50 +199,75 @@ export async function POST(request: NextRequest, { params }: Params) {
       }
     }
 
-    // Convert UI messages to model messages for the harness
+    // Convert UI messages to model messages
     const messages = await convertToModelMessages(body.messages);
 
-    // Create UI message stream response with harness integration
+    // Route to the correct agent based on project type
+    const isCodeProject = project.type === 'code';
+
     // Wrap in runWithToolContext so host-executed workspace tools
-    // (listAssets, getAssetUrl, uploadTextAsset, checkBudget) have access
-    // to projectId and userId without taking them as agent parameters.
+    // (listAssets, getAssetUrl, generateImage, traceImage, checkBudget)
+    // have access to projectId/userId/projectType without being agent parameters.
     return runWithToolContext(
-      { projectId, userId: project.userId },
+      { projectId, userId: project.userId, projectType: project.type },
       () =>
         createUIMessageStreamResponse({
           stream: createUIMessageStream({
             execute: async ({ writer }) => {
-              // Resume or create harness session for this project
-              const session = await resumeOrCreateSession({
-                agent: codingAgent,
-                projectId,
-              });
+              if (isCodeProject) {
+                // ── Code projects: HarnessAgent (sandbox + session resume) ──
+                const session = await resumeOrCreateSession({
+                  agent: codingAgent,
+                  projectId,
+                });
 
-              try {
-                // Stream the harness turn
-                const result = await codingAgent.stream({ session, messages });
+                try {
+                  const result = await codingAgent.stream({ session, messages });
 
-                // Merge harness stream into UI message stream
+                  writer.merge(
+                    toUIMessageStream({
+                      stream: result.stream,
+                      onError: getHarnessErrorMessage,
+                      onEnd: async () => {
+                        await detachAndPersist({ projectId, session });
+                      },
+                    })
+                  );
+                } catch (error) {
+                  await session.destroy();
+                  throw error;
+                }
+              } else {
+                // ── Content projects: ToolLoopAgent (host-side, no sandbox) ──
+                const agent = createContentAgent({
+                  id: project.id,
+                  name: project.name,
+                  type: project.type as 'design' | 'video' | 'flow',
+                  description: project.description,
+                });
+
+                const result = await agent.stream({
+                  messages,
+                  model: body.model,
+                });
+
                 writer.merge(
                   toUIMessageStream({
                     stream: result.stream,
-                    onError: getHarnessErrorMessage,
-                    onEnd: async () => {
-                      // Detach session (keeps sandbox warm) and persist resume state
-                      await detachAndPersist({ projectId, session });
-
-                      // TODO: Persist assistant response text to database
-                      // For now, the harness owns the conversation history natively
+                    onError: (error) => {
+                      console.error('[vibeflow] Content agent stream error:', error);
+                      return 'An error occurred during generation.';
                     },
                   })
                 );
-              } catch (error) {
-                // On error, destroy the session to avoid corrupted state
-                await session.destroy();
-                throw error;
               }
             },
-            onError: getHarnessErrorMessage,
+            onError: isCodeProject
+              ? getHarnessErrorMessage
+              : (error) => {
+                  console.error('[vibeflow] Chat stream error:', error);
+                  return 'An error occurred during the chat request.';
+                },
           }),
           init: {
             headers: {
@@ -256,7 +289,7 @@ export async function POST(request: NextRequest, { params }: Params) {
       );
     }
 
-    console.error('[vibeflow] Harness chat POST error:', error);
+    console.error('[vibeflow] Chat POST error:', error);
 
     if (error instanceof BudgetExceededError) {
       return NextResponse.json(

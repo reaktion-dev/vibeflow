@@ -28,6 +28,9 @@ const envSchema = z.object({
   REPLICATE_API_TOKEN: z.string().optional(),
   // Phase 4: Video Studio
   REMOTION_LICENSE_KEY: z.string().optional(),
+  // Phase 2: Web search (Serper/SerpAPI) for design composition
+  SERPER_API_KEY: z.string().optional(),
+  SERPAPI_API_KEY: z.string().optional(),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 });
 
@@ -64,6 +67,8 @@ export function getEnv(): Env {
     STABILITY_API_KEY: process.env.STABILITY_API_KEY,
     REPLICATE_API_TOKEN: process.env.REPLICATE_API_TOKEN,
     REMOTION_LICENSE_KEY: process.env.REMOTION_LICENSE_KEY,
+    SERPER_API_KEY: process.env.SERPER_API_KEY,
+    SERPAPI_API_KEY: process.env.SERPAPI_API_KEY,
     NODE_ENV: process.env.NODE_ENV,
   };
 

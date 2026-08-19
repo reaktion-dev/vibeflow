@@ -10,10 +10,11 @@ import { ChatPanelHeader } from './ChatPanelHeader';
 
 interface ChatPanelProps {
   projectId: string;
+  projectType?: 'code' | 'design' | 'video' | 'flow';
   currentFile?: string;
 }
 
-export function ChatPanel({ projectId, currentFile }: ChatPanelProps) {
+export function ChatPanel({ projectId, projectType, currentFile }: ChatPanelProps) {
   const {
     addToolApprovalResponse,
     availableModels,
@@ -27,6 +28,7 @@ export function ChatPanel({ projectId, currentFile }: ChatPanelProps) {
     isLoadingHistory,
   } = useProjectAgentChat({
     projectId,
+    projectType,
     currentFile,
   });
 

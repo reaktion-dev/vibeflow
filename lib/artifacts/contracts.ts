@@ -82,12 +82,64 @@ export const svgPathSchema = z.object({
   opacity: z.number().min(0).max(1).optional(),
 });
 
+export const svgImageElementSchema = z.object({
+  type: z.literal('image'),
+  assetId: z.string(),
+  href: z.string().optional(), // resolved data URL or R2 key at render time
+  x: z.number().default(0),
+  y: z.number().default(0),
+  width: z.number(),
+  height: z.number(),
+  opacity: z.number().min(0).max(1).optional(),
+  preserveAspectRatio: z
+    .string()
+    .default('xMidYMid meet'),
+});
+
+export const svgTextElementSchema = z.object({
+  type: z.literal('text'),
+  text: z.string(),
+  x: z.number().default(0),
+  y: z.number().default(0),
+  fontFamily: z.string().default('sans-serif'),
+  fontSize: z.number().default(16),
+  fontWeight: z
+    .union([z.literal('normal'), z.literal('bold'), z.number()])
+    .default('normal'),
+  fill: z.string().default('#000000'),
+  textAnchor: z
+    .enum(['start', 'middle', 'end'])
+    .default('start'),
+  opacity: z.number().min(0).max(1).optional(),
+});
+
+export const svgRectElementSchema = z.object({
+  type: z.literal('rect'),
+  x: z.number().default(0),
+  y: z.number().default(0),
+  width: z.number(),
+  height: z.number(),
+  fill: z.string().nullable().optional(),
+  stroke: z.string().nullable().optional(),
+  strokeWidth: z.number().optional(),
+  rx: z.number().default(0), // corner radius
+  opacity: z.number().min(0).max(1).optional(),
+});
+
+export const svgElementSchema = z.union([
+  svgPathSchema,
+  svgImageElementSchema,
+  svgTextElementSchema,
+  svgRectElementSchema,
+]);
+
 export const svgLayerSchema = z.object({
   id: z.string(),
   name: z.string(),
   visible: z.boolean().default(true),
   locked: z.boolean().default(false),
-  paths: z.array(svgPathSchema),
+  paths: z.array(svgPathSchema).default([]),
+  elements: z.array(svgElementSchema).default([]),
 });
 
 export const exportPresetSchema = z.object({
@@ -103,6 +155,10 @@ export const svgDocumentSchema = z.object({
 });
 
 export type SvgPath = z.infer<typeof svgPathSchema>;
+export type SvgImageElement = z.infer<typeof svgImageElementSchema>;
+export type SvgTextElement = z.infer<typeof svgTextElementSchema>;
+export type SvgRectElement = z.infer<typeof svgRectElementSchema>;
+export type SvgElement = z.infer<typeof svgElementSchema>;
 export type SvgLayer = z.infer<typeof svgLayerSchema>;
 export type ExportPreset = z.infer<typeof exportPresetSchema>;
 export type SvgDocument = z.infer<typeof svgDocumentSchema>;

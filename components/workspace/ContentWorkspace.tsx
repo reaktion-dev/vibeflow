@@ -107,7 +107,7 @@ export function ContentWorkspace({
       {/* Chat sidebar */}
       {showChat && (
         <div className="w-96 border-l border-border bg-card flex flex-col">
-          <ChatPanel projectId={projectId} />
+          <ChatPanel projectId={projectId} projectType={projectType} />
         </div>
       )}
 

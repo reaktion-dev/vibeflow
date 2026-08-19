@@ -22,6 +22,10 @@ const nextConfig = {
     '@ai-sdk/harness',
     '@ai-sdk/sandbox-vercel',
     'ws',
+    '@visioncortex/vtracer',
+    'potrace',
+    'sharp',
+    '@resvg/resvg-js',
   ],
 }
 

@@ -6,32 +6,34 @@ import { useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 
 import { CODING_AGENT_MODELS } from '@/lib/ai/harness/models';
+import { CONTENT_CHAT_MODELS } from '@/lib/ai/agents/content-agent';
 
 interface UseProjectAgentChatOptions {
   projectId: string;
+  projectType?: 'code' | 'design' | 'video' | 'flow';
   currentFile?: string;
 }
 
 /**
- * Harness-aware chat hook for project coding agent.
- * 
- * Key differences from the previous ToolLoopAgent implementation:
- * - The harness owns conversation history (no message replay needed)
- * - Session state persists via detach/reattach on the server
- * - Tool parts include harness-specific types (tool-read, tool-bash, dynamic-tool)
- * - Approval flow is built into the harness permissionMode
- * 
- * The hook only needs to:
- * 1. Send new user messages
- * 2. Render incoming stream parts (text, reasoning, tools, approvals)
- * 3. Send approval responses when requested
+ * Workspace-aware chat hook.
+ *
+ * Routes to /api/projects/[id]/chat which selects the agent by project type:
+ * - code → HarnessAgent (OpenCode + sandbox)
+ * - design/video/flow → ToolLoopAgent (host-side, no sandbox)
+ *
+ * Model lists differ: code projects use CODING_AGENT_MODELS,
+ * content projects use CONTENT_CHAT_MODELS.
  */
 export function useProjectAgentChat({
   projectId,
+  projectType = 'code',
   currentFile,
 }: UseProjectAgentChatOptions) {
+  const isCodeProject = projectType === 'code';
+  const modelList = isCodeProject ? CODING_AGENT_MODELS : CONTENT_CHAT_MODELS;
+
   const [selectedModel, setSelectedModel] = useState(
-    CODING_AGENT_MODELS[0]?.id ?? 'anthropic/claude-sonnet-4-6'
+    modelList[0]?.id ?? 'anthropic/claude-sonnet-4-6'
   );
 
   // The harness session persists on the server, so we don't need to load history.
@@ -78,7 +80,7 @@ export function useProjectAgentChat({
 
   return {
     ...chat,
-    availableModels: CODING_AGENT_MODELS,
+    availableModels: modelList,
     selectedModel,
     setSelectedModel,
     sendTextMessage,

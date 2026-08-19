@@ -231,6 +231,310 @@ export function createDesignTools() {
         };
       },
     }),
+
+    exportDesign: tool({
+      description:
+        'Export the current SVG design as both a native SVG file and a rasterized image (PNG, JPEG, or WebP). Produces two export assets in the gallery.',
+      inputSchema: z.object({
+        svgAssetId: z
+          .string()
+          .describe('The SVG asset ID to export'),
+        name: z
+          .string()
+          .default('design-export')
+          .describe('Base name for the exported files (without extension)'),
+        format: z
+          .enum(['png', 'jpeg', 'webp'])
+          .default('png')
+          .describe('Raster output format'),
+        scale: z
+          .union([z.literal(1), z.literal(2)])
+          .default(1)
+          .describe('Export scale (1x or 2x)'),
+        quality: z
+          .number()
+          .min(1)
+          .max(100)
+          .optional()
+          .describe('Quality for JPEG/WebP (1-100, ignored for PNG)'),
+      }),
+      execute: async ({ svgAssetId, name, format, scale, quality }) => {
+        const { projectId } = getToolContext();
+
+        const { getAssetBuffer } = await import('@/lib/artifacts/service');
+        const { exportDesign: exportDesignFn } = await import(
+          '@/lib/artifacts/export'
+        );
+
+        // Download the SVG from R2
+        const svgBuffer = await getAssetBuffer(svgAssetId);
+        const svgString = svgBuffer.toString('utf-8');
+
+        const result = await exportDesignFn({
+          projectId,
+          svgString,
+          name,
+          options: { format, scale, quality },
+        });
+
+        return {
+          svgAssetId: result.svgAssetId,
+          rasterAssetId: result.rasterAssetId,
+          message: `Exported "${name}" as SVG + ${format.toUpperCase()} (${scale}x). Both files are in the artifact gallery.`,
+        };
+      },
+    }),
+
+    searchImages: tool({
+      description:
+        'Search the web for images (stock photos, transparent PNGs, backgrounds, reference material). Returns URLs and metadata. Use fetchImage to download and store found images as project assets. Best for finding reusable content like backgrounds, icons, logos, and transparent cutouts.',
+      inputSchema: z.object({
+        query: z
+          .string()
+          .min(2)
+          .describe(
+            'Search query. Add "png transparent" for cutouts, "background" for backgrounds, "free stock" for photos.'
+          ),
+        count: z
+          .number()
+          .int()
+          .min(1)
+          .max(20)
+          .default(10)
+          .describe('Number of results to return'),
+      }),
+      execute: async ({ query, count }) => {
+        const { searchImages } = await import('@/lib/ai/agents/web-search');
+
+        const { results, provider } = await searchImages(query, { count });
+
+        return {
+          query,
+          provider,
+          results: results.map((r) => ({
+            title: r.title,
+            imageUrl: r.imageUrl,
+            source: r.source,
+            width: r.width,
+            height: r.height,
+          })),
+          message: `Found ${results.length} images. Use fetchImage to download and store any of these as project assets.`,
+        };
+      },
+    }),
+
+    searchWeb: tool({
+      description:
+        'Search the web for general information, references, inspiration, or content to reuse in designs. Returns titles, URLs, and snippets.',
+      inputSchema: z.object({
+        query: z.string().min(2).describe('Search query'),
+        count: z
+          .number()
+          .int()
+          .min(1)
+          .max(20)
+          .default(5)
+          .describe('Number of results to return'),
+      }),
+      execute: async ({ query, count }) => {
+        const { searchWeb: searchFn } = await import(
+          '@/lib/ai/agents/web-search'
+        );
+
+        const { results, provider } = await searchFn(query, { count });
+
+        return {
+          query,
+          provider,
+          results: results.map((r) => ({
+            title: r.title,
+            url: r.url,
+            snippet: r.source,
+          })),
+        };
+      },
+    }),
+
+    fetchImage: tool({
+      description:
+        'Download an image from a URL and store it as a project asset in R2. Use after searchImages to fetch found images. Supports PNG, JPEG, WebP, and GIF.',
+      inputSchema: z.object({
+        url: z.string().url().describe('Direct image URL to download'),
+        name: z
+          .string()
+          .describe('Human-readable name for the asset (e.g., "coffee-cup-transparent")'),
+        assetType: z
+          .enum(['image', 'export'])
+          .default('image')
+          .describe('Asset type — "image" for reusable elements, "export" for final outputs'),
+      }),
+      execute: async ({ url, name, assetType }) => {
+        const { projectId } = getToolContext();
+
+        const { downloadImageFromUrl } = await import(
+          '@/lib/ai/agents/web-search'
+        );
+
+        const { buffer, mimeType } = await downloadImageFromUrl(url);
+
+        const result = await createAsset({
+          projectId,
+          name,
+          type: assetType as AssetType,
+          mimeType,
+          body: buffer,
+          metadata: {
+            status: 'ready',
+            source: {
+              provider: 'web',
+              model: 'fetch',
+              prompt: url,
+              params: { url },
+            },
+          },
+        });
+
+        return {
+          assetId: result.id,
+          mimeType,
+          sizeBytes: result.sizeBytes,
+          message: `Downloaded "${name}" (${mimeType}, ${result.sizeBytes} bytes). It is now available in the artifact gallery.`,
+        };
+      },
+    }),
+
+    composeDesign: tool({
+      description:
+        'Compose a multi-layer SVG design from elements: raster images (backgrounds, transparent PNGs), vector shapes (rects, cards), and text. This is the primary tool for creating rich, composite designs — layer images, shapes, and text to produce production-quality output. The composed SVG is stored as an asset and loaded into the mini-editor.',
+      inputSchema: z.object({
+        width: z
+          .number()
+          .int()
+          .positive()
+          .default(1080)
+          .describe('Canvas width in pixels'),
+        height: z
+          .number()
+          .int()
+          .positive()
+          .default(1080)
+          .describe('Canvas height in pixels'),
+        background: z
+          .string()
+          .default('#ffffff')
+          .describe('Background color (hex or "transparent")'),
+        layers: z
+          .array(
+            z.object({
+              name: z.string().describe('Layer name (e.g., "background", "content", "overlay")'),
+              elements: z
+                .array(
+                  z.union([
+                    z.object({
+                      type: z.literal('image'),
+                      assetId: z.string().describe('R2 asset ID of the image to place'),
+                      x: z.number().default(0),
+                      y: z.number().default(0),
+                      width: z.number().describe('Width in pixels'),
+                      height: z.number().describe('Height in pixels'),
+                      opacity: z.number().min(0).max(1).optional(),
+                    }),
+                    z.object({
+                      type: z.literal('rect'),
+                      x: z.number().default(0),
+                      y: z.number().default(0),
+                      width: z.number(),
+                      height: z.number(),
+                      fill: z.string().nullable().optional(),
+                      stroke: z.string().nullable().optional(),
+                      strokeWidth: z.number().optional(),
+                      rx: z.number().default(0).describe('Corner radius'),
+                      opacity: z.number().min(0).max(1).optional(),
+                    }),
+                    z.object({
+                      type: z.literal('text'),
+                      text: z.string(),
+                      x: z.number().default(0),
+                      y: z.number().default(0),
+                      fontFamily: z.string().default('sans-serif'),
+                      fontSize: z.number().default(16),
+                      fontWeight: z
+                        .union([z.literal('normal'), z.literal('bold'), z.number()])
+                        .default('normal'),
+                      fill: z.string().default('#000000'),
+                      textAnchor: z
+                        .enum(['start', 'middle', 'end'])
+                        .default('start'),
+                      opacity: z.number().min(0).max(1).optional(),
+                    }),
+                  ])
+                )
+                .describe('Elements in this layer'),
+              visible: z.boolean().default(true),
+            })
+          )
+          .min(1)
+          .describe('Layers, bottom to top'),
+      }),
+      execute: async ({ width, height, background, layers }) => {
+        const { projectId } = getToolContext();
+
+        const { composeSvgDocument, svgDocumentToString } = await import(
+          '@/lib/artifacts/compose'
+        );
+        const { resolveImageReferences } = await import(
+          '@/lib/artifacts/resolve-images'
+        );
+
+        // Build the SVG document from the layer spec
+        const document = composeSvgDocument({
+          projectId,
+          width,
+          height,
+          layers,
+        });
+
+        // Resolve image assetId references to base64 data URLs for rendering
+        const resolvedImages = await resolveImageReferences(document);
+
+        // Convert to SVG string (with resolved images)
+        const svgString = svgDocumentToString(document, resolvedImages);
+
+        // Store as SVG asset
+        const result = await createAsset({
+          projectId,
+          name: 'Composed design',
+          type: 'svg',
+          mimeType: 'image/svg+xml',
+          body: Buffer.from(svgString, 'utf-8'),
+          metadata: {
+            status: 'ready',
+            source: {
+              provider: 'vibeflow',
+              model: 'compose',
+              prompt: '',
+              params: { width, height, layerCount: layers.length, background },
+            },
+          },
+        });
+
+        // Also store the canvas data for the mini-editor
+        const { saveCanvasData } = await import(
+          '@/lib/ai/agents/image-trace'
+        );
+        await saveCanvasData(projectId, document);
+
+        return {
+          svgAssetId: result.id,
+          layerCount: layers.length,
+          elementCount: layers.reduce(
+            (sum, l) => sum + l.elements.length,
+            0
+          ),
+          message: `Composed design with ${layers.length} layers. The SVG is ready in the artifact gallery and loaded in the mini-editor. Use exportDesign to export as PNG/JPEG/WebP.`,
+        };
+      },
+    }),
   };
 }
 
@@ -248,5 +552,5 @@ export const contentToolApproval = {
   generateImage: 'user-approval' as const,
   traceImage: 'user-approval' as const,
   uploadTextAsset: 'user-approval' as const,
-  // listAssets, getAssetUrl, checkBudget are free (no approval)
+  // searchImages, searchWeb, fetchImage, composeDesign, exportDesign are free (no approval)
 };
