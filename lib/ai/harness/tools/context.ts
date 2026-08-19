@@ -14,6 +14,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 export interface ToolContext {
   projectId: string;
   userId: string;
+  projectType: 'code' | 'design' | 'video' | 'flow';
 }
 
 const toolContextStorage = new AsyncLocalStorage<ToolContext>();
