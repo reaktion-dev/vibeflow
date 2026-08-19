@@ -67,6 +67,7 @@ export function ProjectCreationModal({
   const [projectName, setProjectName] = useState('');
   const [projectDescription, setProjectDescription] = useState('');
   const [gitUrl, setGitUrl] = useState('');
+  const [budgetAmount, setBudgetAmount] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   if (!isOpen) return null;
@@ -90,6 +91,16 @@ export function ProjectCreationModal({
       // Only include gitUrl if provided and it's a code project
       if (workspaceType === 'code' && gitUrl.trim()) {
         body.gitUrl = gitUrl.trim();
+      }
+
+      // Non-code projects require a generation budget
+      if (workspaceType && workspaceType !== 'code' && budgetAmount.trim()) {
+        const budgetDollars = parseFloat(budgetAmount);
+        if (isNaN(budgetDollars) || budgetDollars <= 0) {
+          toast.error('Budget must be a positive number');
+          return;
+        }
+        body.budgetCents = Math.round(budgetDollars * 100);
       }
 
       const response = await fetch('/api/projects', {
@@ -118,6 +129,7 @@ export function ProjectCreationModal({
     setProjectName('');
     setProjectDescription('');
     setGitUrl('');
+    setBudgetAmount('');
   };
 
   return (
@@ -252,6 +264,34 @@ export function ProjectCreationModal({
                   </p>
                 </div>
               )}
+
+              {workspaceType && workspaceType !== 'code' && (
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Generation Budget (USD){' '}
+                    <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    step="0.50"
+                    value={budgetAmount}
+                    onChange={(e) => setBudgetAmount(e.target.value)}
+                    placeholder="10.00"
+                    autoFocus
+                    className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && projectName.trim() && budgetAmount.trim()) {
+                        handleCreate();
+                      }
+                    }}
+                  />
+                  <p className="text-xs text-muted-foreground mt-2">
+                    The agent generates freely within this budget. Approval is
+                    required for over-budget or risky operations.
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -280,7 +320,12 @@ export function ProjectCreationModal({
           {step === 'details' && (
             <Button
               onClick={handleCreate}
-              disabled={!projectName.trim() || isLoading}
+              disabled={
+                !projectName.trim() ||
+                isLoading ||
+                (workspaceType !== 'code' &&
+                  (!budgetAmount.trim() || parseFloat(budgetAmount) <= 0))
+              }
               className="gap-2"
             >
               {isLoading && (

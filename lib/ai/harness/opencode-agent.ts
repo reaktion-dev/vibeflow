@@ -4,12 +4,16 @@ import { createVercelSandbox } from '@ai-sdk/sandbox-vercel';
 
 import { getAuthorizedProjectFile, listAuthorizedProjectFiles } from '@/lib/projects/server';
 import { CODING_AGENT_MODELS } from '@/lib/ai/harness/models';
+import { createWorkspaceTools, workspaceToolApproval } from '@/lib/ai/harness/tools/workspace-tools';
 
 /**
  * Vibeflow Coding Agent powered by HarnessAgent + OpenCode + Vercel Sandbox.
  * 
  * This agent runs OpenCode in an isolated Firecracker microVM with full workspace access.
  * Built-in tools: read, write, edit, bash, grep, glob, ls, webfetch, skill, todowrite, agent.
+ * 
+ * Custom workspace tools (host-executed): listAssets, getAssetUrl, uploadTextAsset,
+ * checkBudget. These run on the Next.js host and have access to R2 + DB.
  * 
  * Sessions are persistent and resumable across HTTP requests via detach/reattach.
  */
@@ -29,9 +33,14 @@ export const codingAgent = new HarnessAgent({
     'Always read files before modifying them. Prefer small, safe changes.',
     'When making destructive changes (deleting files, running shell commands), explain the impact clearly.',
     'If a tool execution is denied, explain why it was needed and offer safer alternatives.',
+    'You also have workspace tools: listAssets, getAssetUrl, uploadTextAsset, and checkBudget.',
+    'Use listAssets to see generated artifacts. Use uploadTextAsset to store text/SVG/JSON deliverables.',
     'Be concise and practical. Show diffs when appropriate.',
   ].join('\n'),
   permissionMode: 'allow-reads', // Reads are free, writes/bash need approval
+  // Custom host-executed tools for content workspaces
+  tools: createWorkspaceTools(),
+  toolApproval: workspaceToolApproval,
   skills: [
     {
       name: 'vibeflow-nextjs',

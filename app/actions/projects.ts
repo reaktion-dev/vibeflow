@@ -42,6 +42,7 @@ export async function createProject(input: {
   gitUrl?: string
   gitBranch?: string
   template?: string
+  budgetCents?: number
 }) {
   const userId = await getUserId()
 
@@ -50,6 +51,10 @@ export async function createProject(input: {
   }
   if (input.name.length > 255) {
     throw new Error('Project name must be less than 255 characters')
+  }
+  // Budget is required for non-code projects (code projects don't use paid generation)
+  if (input.type !== 'code' && (!input.budgetCents || input.budgetCents <= 0)) {
+    throw new Error('A generation budget is required for design/video/flow projects')
   }
 
   const projectId = nanoid()
@@ -101,6 +106,12 @@ export async function createProject(input: {
         projectId,
       })
       break
+  }
+
+  // Initialize budget ledger for non-code projects
+  if (projectType !== 'code' && input.budgetCents) {
+    const { initProjectBudget } = await import('@/lib/budget/service')
+    await initProjectBudget(projectId, input.budgetCents)
   }
 
   revalidatePath('/')

@@ -14,8 +14,10 @@ import { codingAgent } from '@/lib/ai/harness/opencode-agent';
 import { resumeOrCreateSession, detachAndPersist } from '@/lib/ai/harness/session-store';
 import { getHarnessErrorMessage } from '@ai-sdk/harness/agent';
 import { getAuthorizedProject } from '@/lib/projects/server';
+import { runWithToolContext } from '@/lib/ai/harness/tools/context';
 import { db } from '@/lib/db';
 import { conversations, chatMessages } from '@/lib/db/schema';
+import { getProjectBudget, BudgetExceededError } from '@/lib/budget/service';
 
 export const maxDuration = 30;
 
@@ -193,48 +195,55 @@ export async function POST(request: NextRequest, { params }: Params) {
     const messages = await convertToModelMessages(body.messages);
 
     // Create UI message stream response with harness integration
-    return createUIMessageStreamResponse({
-      stream: createUIMessageStream({
-        execute: async ({ writer }) => {
-          // Resume or create harness session for this project
-          const session = await resumeOrCreateSession({
-            agent: codingAgent,
-            projectId,
-          });
+    // Wrap in runWithToolContext so host-executed workspace tools
+    // (listAssets, getAssetUrl, uploadTextAsset, checkBudget) have access
+    // to projectId and userId without taking them as agent parameters.
+    return runWithToolContext(
+      { projectId, userId: project.userId },
+      () =>
+        createUIMessageStreamResponse({
+          stream: createUIMessageStream({
+            execute: async ({ writer }) => {
+              // Resume or create harness session for this project
+              const session = await resumeOrCreateSession({
+                agent: codingAgent,
+                projectId,
+              });
 
-          try {
-            // Stream the harness turn
-            const result = await codingAgent.stream({ session, messages });
+              try {
+                // Stream the harness turn
+                const result = await codingAgent.stream({ session, messages });
 
-            // Merge harness stream into UI message stream
-            writer.merge(
-              toUIMessageStream({
-                stream: result.stream,
-                onError: getHarnessErrorMessage,
-                onEnd: async () => {
-                  // Detach session (keeps sandbox warm) and persist resume state
-                  await detachAndPersist({ projectId, session });
+                // Merge harness stream into UI message stream
+                writer.merge(
+                  toUIMessageStream({
+                    stream: result.stream,
+                    onError: getHarnessErrorMessage,
+                    onEnd: async () => {
+                      // Detach session (keeps sandbox warm) and persist resume state
+                      await detachAndPersist({ projectId, session });
 
-                  // TODO: Persist assistant response text to database
-                  // For now, the harness owns the conversation history natively
-                },
-              })
-            );
-          } catch (error) {
-            // On error, destroy the session to avoid corrupted state
-            await session.destroy();
-            throw error;
-          }
-        },
-        onError: getHarnessErrorMessage,
-      }),
-      init: {
-        headers: {
-          'X-Conversation-Id': convo.id,
-          'X-Project-Id': projectId,
-        },
-      },
-    });
+                      // TODO: Persist assistant response text to database
+                      // For now, the harness owns the conversation history natively
+                    },
+                  })
+                );
+              } catch (error) {
+                // On error, destroy the session to avoid corrupted state
+                await session.destroy();
+                throw error;
+              }
+            },
+            onError: getHarnessErrorMessage,
+          }),
+          init: {
+            headers: {
+              'X-Conversation-Id': convo.id,
+              'X-Project-Id': projectId,
+            },
+          },
+        })
+    );
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -248,6 +257,17 @@ export async function POST(request: NextRequest, { params }: Params) {
     }
 
     console.error('[vibeflow] Harness chat POST error:', error);
+
+    if (error instanceof BudgetExceededError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: error.message,
+          code: 'BUDGET_EXCEEDED',
+        },
+        { status: 402 }
+      );
+    }
 
     const message =
       error instanceof Error ? error.message : 'Failed to process chat request';

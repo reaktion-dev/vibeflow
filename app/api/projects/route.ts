@@ -9,6 +9,7 @@ const createProjectSchema = z.object({
   gitUrl: z.string().url().optional(),
   gitBranch: z.string().default('main'),
   template: z.string().default('blank'),
+  budgetCents: z.number().int().positive().optional(),
 })
 
 /**

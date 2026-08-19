@@ -318,16 +318,39 @@ export const assetTable = pgTable(
       .notNull()
       .references(() => projectTable.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
-    type: varchar("type", { length: 50 }).notNull(), // 'image' | 'video' | 'audio' | 'font' | 'export'
+    type: varchar("type", { length: 50 }).notNull(), // 'image' | 'svg' | 'video' | 'audio' | 'document' | 'export' | 'pipeline'
     mimeType: text("mime_type"),
-    url: text("url").notNull(), // storage URL / data URI
+    url: text("url").notNull(), // R2 object key for private access
     sizeBytes: integer("size_bytes"),
-    metadata: text("metadata").default("{}"), // JSON — dimensions, duration, etc.
+    metadata: text("metadata").default("{}"), // JSON — { status, source, costMicros, approvals }
     createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
   },
   (table) => ({
     projectIdIdx: index("asset_project_id_idx").on(table.projectId),
     typeIdx: index("asset_type_idx").on(table.type),
+  })
+);
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// BUDGET LEDGER (per-project spend tracking)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export const projectBudgetTable = pgTable(
+  "project_budget",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projectTable.id, { onDelete: "cascade" })
+      .unique(),
+    budgetCents: integer("budget_cents").notNull(), // user-set cap at creation
+    spentCents: integer("spent_cents").default(0),
+    overBudget: boolean("over_budget").default(false),
+    createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => ({
+    projectIdIdx: index("project_budget_project_idx").on(table.projectId),
   })
 );
 
@@ -664,6 +687,7 @@ export type VideoProject = typeof videoProjectTable.$inferSelect;
 export type WorkflowDetail = typeof workflowDetailTable.$inferSelect;
 export type File = typeof fileTable.$inferSelect;
 export type Asset = typeof assetTable.$inferSelect;
+export type ProjectBudget = typeof projectBudgetTable.$inferSelect;
 export type Agent = typeof agentTable.$inferSelect;
 export type AgentProject = typeof agentProjectTable.$inferSelect;
 export type Conversation = typeof conversationTable.$inferSelect;
@@ -695,3 +719,4 @@ export const workflowRuns = workflowRunTable;
 export const workflowRunSteps = workflowRunStepTable;
 export const acpMessages = acpMessageTable;
 export const tokenUsages = tokenUsageTable;
+export const projectBudgets = projectBudgetTable;

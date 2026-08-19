@@ -160,29 +160,29 @@ export function AppSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel>Workspace</SidebarGroupLabel>
+          <SidebarGroupLabel>Workspaces</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton render={<Link href="/code" />}>
+                <SidebarMenuButton render={<Link href="/dashboard?type=code" />}>
                   <Code2 className="h-4 w-4" />
                   <span>Code</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton render={<Link href="/design" />}>
+                <SidebarMenuButton render={<Link href="/dashboard?type=design" />}>
                   <Palette className="h-4 w-4" />
                   <span>Design</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton render={<Link href="/video" />}>
+                <SidebarMenuButton render={<Link href="/dashboard?type=video" />}>
                   <Video className="h-4 w-4" />
                   <span>Video</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton render={<Link href="/flow" />}>
+                <SidebarMenuButton render={<Link href="/dashboard?type=flow" />}>
                   <Workflow className="h-4 w-4" />
                   <span>Flows</span>
                 </SidebarMenuButton>

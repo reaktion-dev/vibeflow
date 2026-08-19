@@ -11,6 +11,14 @@ const envSchema = z.object({
   ANTHROPIC_API_KEY: z.string().optional(),
   // Vercel Sandbox (for harness)
   VERCEL_OIDC_TOKEN: z.string().optional(),
+  // Cloudflare R2 (artifact storage)
+  R2_ACCOUNT_ID: z.string().optional(),
+  R2_ACCESS_KEY_ID: z.string().optional(),
+  R2_SECRET_ACCESS_KEY: z.string().optional(),
+  R2_BUCKET_NAME: z.string().optional(),
+  R2_PUBLIC_URL: z.string().url().optional(),
+  // Budget ceiling cap (env-level, in cents)
+  BUDGET_CEILING_CENTS: z.coerce.number().int().positive().default(100000), // $1000 default
   // Phase 2: MCP/ACP
   MCP_REGISTRY_URL: z.string().url().optional(),
   ACP_SECRET: z.string().optional(),
@@ -41,6 +49,15 @@ export function getEnv(): Env {
     ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
     // Vercel Sandbox
     VERCEL_OIDC_TOKEN: process.env.VERCEL_OIDC_TOKEN,
+    // Cloudflare R2
+    R2_ACCOUNT_ID: process.env.R2_ACCOUNT_ID,
+    R2_ACCESS_KEY_ID: process.env.R2_ACCESS_KEY_ID,
+    R2_SECRET_ACCESS_KEY: process.env.R2_SECRET_ACCESS_KEY,
+    R2_BUCKET_NAME: process.env.R2_BUCKET_NAME,
+    R2_PUBLIC_URL: process.env.R2_PUBLIC_URL,
+    BUDGET_CEILING_CENTS: process.env.BUDGET_CEILING_CENTS
+      ? Number(process.env.BUDGET_CEILING_CENTS)
+      : 100000,
     MCP_REGISTRY_URL: process.env.MCP_REGISTRY_URL,
     ACP_SECRET: process.env.ACP_SECRET,
     TOOL_APPROVAL_SECRET: process.env.TOOL_APPROVAL_SECRET,
