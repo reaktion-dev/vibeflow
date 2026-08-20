@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { useProject } from '@/hooks/useProject';
 import { useFileTree } from '@/hooks/useFileOperations';
 import { FileTree } from './FileTree';
@@ -9,6 +9,7 @@ import { Terminal } from './Terminal';
 import { ChatSidebar } from '@/components/ai/ChatSidebar';
 import { ChevronLeft, Menu, X } from 'lucide-react';
 import Link from 'next/link';
+import { useWorkspaceStore } from '@/stores/workspace-store';
 
 interface IDELayoutProps {
   projectId: string;
@@ -17,10 +18,14 @@ interface IDELayoutProps {
 export function IDELayout({ projectId }: IDELayoutProps) {
   const { project, isLoading: projectLoading } = useProject(projectId);
   const { files, isLoading: filesLoading } = useFileTree(projectId, '/');
-  const [selectedFile, setSelectedFile] = useState<string>();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [chatOpen, setChatOpen] = useState(true);
-  const [layoutMode, setLayoutMode] = useState<'editor' | 'split'>('editor');
+  const selectedFile = useWorkspaceStore((s) => s.selectedFile);
+  const setSelectedFile = useWorkspaceStore((s) => s.setSelectedFile);
+  const showFileTree = useWorkspaceStore((s) => s.showFileTree);
+  const toggleFileTree = useWorkspaceStore((s) => s.toggleFileTree);
+  const showChat = useWorkspaceStore((s) => s.showChat);
+  const toggleChat = useWorkspaceStore((s) => s.toggleChat);
+  const layoutMode = useWorkspaceStore((s) => s.layoutMode);
+  const setLayoutMode = useWorkspaceStore((s) => s.setLayoutMode);
 
   if (projectLoading) {
     return (
@@ -69,22 +74,22 @@ export function IDELayout({ projectId }: IDELayoutProps) {
 
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
+            onClick={toggleFileTree}
             className="p-1.5 hover:bg-secondary rounded transition"
             title="Toggle sidebar"
           >
-            {sidebarOpen ? (
+            {showFileTree ? (
               <Menu className="w-5 h-5" />
             ) : (
               <Menu className="w-5 h-5" />
             )}
           </button>
           <button
-            onClick={() => setChatOpen(!chatOpen)}
+            onClick={toggleChat}
             className="p-1.5 hover:bg-secondary rounded transition"
             title="Toggle chat"
           >
-            {chatOpen ? (
+            {showChat ? (
               <X className="w-5 h-5" />
             ) : (
               <Menu className="w-5 h-5" />
@@ -96,7 +101,7 @@ export function IDELayout({ projectId }: IDELayoutProps) {
       {/* Main Layout */}
       <div className="flex-1 flex overflow-hidden">
         {/* File Sidebar */}
-        {sidebarOpen && (
+        {showFileTree && (
           <div className="w-56 border-r border-border flex flex-col bg-card">
             <div className="px-4 py-3 border-b border-border">
               <h2 className="text-sm font-semibold">Files</h2>
@@ -104,7 +109,7 @@ export function IDELayout({ projectId }: IDELayoutProps) {
             <FileTree
               files={files}
               onFileSelect={setSelectedFile}
-              selectedPath={selectedFile}
+              selectedPath={selectedFile ?? undefined}
               isLoading={filesLoading}
             />
           </div>
@@ -116,8 +121,8 @@ export function IDELayout({ projectId }: IDELayoutProps) {
           <div className="flex-1 overflow-hidden">
             <EditorPane
               projectId={projectId}
-              filePath={selectedFile}
-              onClose={() => setSelectedFile(undefined)}
+              filePath={selectedFile ?? undefined}
+              onClose={() => setSelectedFile(null)}
             />
           </div>
 
@@ -128,7 +133,7 @@ export function IDELayout({ projectId }: IDELayoutProps) {
         </div>
 
         {/* Chat Sidebar */}
-        {chatOpen && (
+        {showChat && (
           <div className="w-72 border-l border-border flex flex-col">
             <ChatSidebar
               projectId={projectId}

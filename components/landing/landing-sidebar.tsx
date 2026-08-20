@@ -9,8 +9,6 @@ import {
   Video,
   Workflow,
   FolderOpen,
-  Settings,
-  HelpCircle,
   ChevronUp,
 } from "lucide-react";
 import {
@@ -36,17 +34,12 @@ interface LandingSidebarProps {
 }
 
 const navItems: SidebarItem[] = [
-  { icon: <Home className="h-4 w-4" />, label: "Home", active: true },
-  { icon: <Code2 className="h-4 w-4" />, label: "Code" },
-  { icon: <Palette className="h-4 w-4" />, label: "Design" },
-  { icon: <Video className="h-4 w-4" />, label: "Video" },
-  { icon: <Workflow className="h-4 w-4" />, label: "Flows" },
-  { icon: <FolderOpen className="h-4 w-4" />, label: "Projects" },
-];
-
-const bottomItems: SidebarItem[] = [
-  { icon: <Settings className="h-4 w-4" />, label: "Settings" },
-  { icon: <HelpCircle className="h-4 w-4" />, label: "Help" },
+  { icon: <Home className="h-4 w-4" />, label: "Home", href: "/", active: true },
+  { icon: <Code2 className="h-4 w-4" />, label: "Code", href: "/dashboard?type=code" },
+  { icon: <Palette className="h-4 w-4" />, label: "Design", href: "/dashboard?type=design" },
+  { icon: <Video className="h-4 w-4" />, label: "Video", href: "/dashboard?type=video" },
+  { icon: <Workflow className="h-4 w-4" />, label: "Flows", href: "/dashboard?type=flow" },
+  { icon: <FolderOpen className="h-4 w-4" />, label: "Projects", href: "/dashboard" },
 ];
 
 function LandingSidebarIconButton({
@@ -67,15 +60,13 @@ function LandingSidebarIconButton({
 
       {item.href ? (
         <SidebarMenuButton
-          asChild
+          render={<Link href={item.href} />}
           tooltip={item.label}
           isActive={isActive}
           className={buttonClassName}
         >
-          <Link href={item.href} aria-label={item.label}>
-            {item.icon}
-            <span>{item.label}</span>
-          </Link>
+          {item.icon}
+          <span>{item.label}</span>
         </SidebarMenuButton>
       ) : (
         <SidebarMenuButton
@@ -120,12 +111,6 @@ export function LandingSidebar({ activeItem = "Home" }: LandingSidebarProps) {
       </SidebarContent>
 
       <SidebarFooter className="items-center gap-0 px-1.5 pt-0 pb-3">
-        <SidebarMenu className="items-center gap-0.5">
-          {bottomItems.map((item) => (
-            <LandingSidebarIconButton key={item.label} item={item} />
-          ))}
-        </SidebarMenu>
-
         <div className="mt-2 flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-accent to-primary text-primary-foreground">
           <ChevronUp className="h-3 w-3" />
         </div>

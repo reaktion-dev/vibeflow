@@ -1,4 +1,4 @@
-import { Check, FileCode, ShieldAlert, Terminal, X, FileSearch, Globe } from 'lucide-react';
+import { Check, ShieldAlert, X } from 'lucide-react';
 
 import {
   Tool,
@@ -72,19 +72,9 @@ export function HarnessToolParts({
     part.state === 'output-error' ||
     part.state === 'output-denied';
 
-  // Get icon based on tool type
-  const getToolIcon = () => {
-    if (toolName === 'bash' || toolName === 'run') return <Terminal className="size-3.5" />;
-    if (toolName === 'read' || toolName === 'edit' || toolName === 'write') return <FileCode className="size-3.5" />;
-    if (toolName === 'grep' || toolName === 'glob' || toolName === 'ls') return <FileSearch className="size-3.5" />;
-    if (toolName === 'webfetch') return <Globe className="size-3.5" />;
-    return null;
-  };
-
   return (
     <Tool defaultOpen={part.state !== 'output-available'}>
       <ToolHeader
-        icon={getToolIcon()}
         state={part.state}
         title={toolName}
         toolName={toolName}

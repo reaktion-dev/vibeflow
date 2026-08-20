@@ -1,23 +1,53 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Bot,
   Code2,
   GitBranch,
   LayoutTemplate,
+  MoreHorizontal,
   Palette,
+  Pencil,
   Plus,
   Sparkles,
+  Trash2,
   Upload,
   Video,
   Workflow,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import useSWR from 'swr';
 import { cn } from '@/lib/utils';
+import toast from 'react-hot-toast';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { useDeleteProject } from '@/hooks/useProject';
 import { focusDashboardPrompt } from './prompt-focus';
 import { ProjectCreationModal } from './ProjectCreationModal';
 import { DashboardHero } from './DashboardHero';
@@ -42,6 +72,8 @@ interface Project {
 interface ProjectCardProps {
   project: Project;
   onOpen: (id: string) => void;
+  onRename: (project: Project) => void;
+  onDelete: (project: Project) => void;
 }
 
 const TYPE_META: Record<
@@ -121,6 +153,8 @@ const QUICK_STARTS: {
   },
 ];
 
+const PROJECT_TYPES: ProjectType[] = ['code', 'design', 'video', 'flow'];
+
 function formatShortDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, {
     month: 'short',
@@ -136,7 +170,7 @@ function getRepoHost(url: string) {
   }
 }
 
-function ProjectCard({ project, onOpen }: ProjectCardProps) {
+function ProjectCard({ project, onOpen, onRename, onDelete }: ProjectCardProps) {
   const typeMeta = TYPE_META[project.type] ?? TYPE_META.code;
   const statusMeta = STATUS_META[project.status] ?? STATUS_META.active;
   const TypeIcon = typeMeta.icon;
@@ -156,7 +190,7 @@ function ProjectCard({ project, onOpen }: ProjectCardProps) {
           open();
         }
       }}
-      className="group flex cursor-pointer flex-col rounded-xl border border-border/60 bg-card/60 p-4 outline-none transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:bg-card hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] focus-visible:ring-2 focus-visible:ring-primary/40"
+      className="group flex cursor-pointer flex-col rounded-xl border border-border/60 bg-card/60 p-4 outline-none transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:bg-card hover:shadow-lg focus-visible:ring-2 focus-visible:ring-primary/40"
     >
       {/* Header */}
       <div className="mb-2.5 flex items-start justify-between gap-2">
@@ -173,13 +207,47 @@ function ProjectCard({ project, onOpen }: ProjectCardProps) {
             {project.name}
           </h3>
         </div>
-        <Badge
-          variant="outline"
-          className={cn('shrink-0', statusMeta.tint)}
-        >
-          <span className={cn('h-1.5 w-1.5 rounded-full', statusMeta.dot)} />
-          {statusMeta.label}
-        </Badge>
+        <div className="flex shrink-0 items-center gap-1">
+          <Badge
+            variant="outline"
+            className={cn('shrink-0', statusMeta.tint)}
+          >
+            <span className={cn('h-1.5 w-1.5 rounded-full', statusMeta.dot)} />
+            {statusMeta.label}
+          </Badge>
+          {/* Card actions — stop propagation so the menu doesn't open the project */}
+          <div
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={`Actions for ${project.name}`}
+                  />
+                }
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => onRename(project)}>
+                  <Pencil />
+                  Rename
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  variant="destructive"
+                  onClick={() => onDelete(project)}
+                >
+                  <Trash2 />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
       </div>
 
       {/* Description */}
@@ -223,8 +291,15 @@ function ProjectCard({ project, onOpen }: ProjectCardProps) {
 
 export function DashboardContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isCreating, setIsCreating] = useState(false);
   const [showCreationModal, setShowCreationModal] = useState(false);
+  const [renameTarget, setRenameTarget] = useState<Project | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const deleteProject = useDeleteProject();
 
   const {
     data: projects = [],
@@ -242,10 +317,28 @@ export function DashboardContent() {
 
   const openProject = (id: string) => router.push(`/projects/${id}`);
 
+  // Client-side filtering driven by the sidebar (type + search query params).
+  const typeParam = searchParams.get('type');
+  const searchQuery = searchParams.get('q') ?? '';
+  const activeType =
+    typeParam && (PROJECT_TYPES as string[]).includes(typeParam)
+      ? (typeParam as ProjectType)
+      : null;
+
+  const filteredProjects = projects.filter((project) => {
+    if (activeType && project.type !== activeType) return false;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      const name = (project.name ?? '').toLowerCase();
+      const description = (project.description ?? '').toLowerCase();
+      if (!name.includes(q) && !description.includes(q)) return false;
+    }
+    return true;
+  });
+
   const handlePromptSubmit = async (message: { text: string; files: any[] }) => {
     if (!message.text.trim()) return;
     setIsCreating(true);
-    setShowCreationModal(true);
 
     try {
       const res = await fetch('/api/projects', {
@@ -260,9 +353,16 @@ export function DashboardContent() {
       });
 
       if (!res.ok) throw new Error('Failed to create project');
-      refreshProjects();
+      const json = await res.json();
+      const projectId = json?.data?.id;
+      if (!projectId) throw new Error('Failed to create project');
+
+      toast.success('Project created');
+      router.push(`/projects/${projectId}`);
     } catch (error) {
-      console.error('Error creating project:', error);
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to create project'
+      );
     } finally {
       setIsCreating(false);
     }
@@ -276,7 +376,60 @@ export function DashboardContent() {
     setShowCreationModal(true);
   };
 
+  const openRename = (project: Project) => {
+    setRenameValue(project.name);
+    setRenameTarget(project);
+  };
+
+  const handleRename = async () => {
+    if (!renameTarget) return;
+    const name = renameValue.trim();
+    if (!name) {
+      toast.error('Project name cannot be empty');
+      return;
+    }
+    setIsRenaming(true);
+    try {
+      const res = await fetch(`/api/projects/${renameTarget.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || 'Failed to rename project');
+      }
+      toast.success('Project renamed');
+      setRenameTarget(null);
+      void mutate();
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to rename project'
+      );
+    } finally {
+      setIsRenaming(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      await deleteProject(deleteTarget.id);
+      toast.success('Project deleted');
+      setDeleteTarget(null);
+      void mutate();
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to delete project'
+      );
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const hasProjects = projects.length > 0;
+  const hasFilteredProjects = filteredProjects.length > 0;
 
   return (
     <div className="flex min-h-full w-full flex-col">
@@ -344,7 +497,7 @@ export function DashboardContent() {
                   Your projects
                 </h2>
                 <span className="text-xs text-muted-foreground sm:text-sm">
-                  {projects.length}
+                  {filteredProjects.length}
                 </span>
               </div>
               <Button
@@ -356,15 +509,25 @@ export function DashboardContent() {
               </Button>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {projects.map((project) => (
-                <ProjectCard
-                  key={project.id}
-                  project={project}
-                  onOpen={openProject}
-                />
-              ))}
-            </div>
+            {hasFilteredProjects ? (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {filteredProjects.map((project) => (
+                  <ProjectCard
+                    key={project.id}
+                    project={project}
+                    onOpen={openProject}
+                    onRename={openRename}
+                    onDelete={setDeleteTarget}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-border/60 p-10 text-center">
+                <p className="text-sm text-muted-foreground">
+                  No projects match your current filters.
+                </p>
+              </div>
+            )}
           </div>
         ) : (
           <div className="border-t border-border/40 pt-8">
@@ -383,7 +546,7 @@ export function DashboardContent() {
                     key={item.label}
                     type="button"
                     onClick={() => handleQuickStart(item.action)}
-                    className="group flex items-start gap-3 rounded-xl border border-border/60 bg-card/60 p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:bg-card hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)]"
+                    className="group flex items-start gap-3 rounded-xl border border-border/60 bg-card/60 p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:bg-card hover:shadow-lg"
                   >
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary transition-colors group-hover:bg-primary/15">
                       <Icon className="h-5 w-5" />
@@ -416,6 +579,71 @@ export function DashboardContent() {
           }}
         />
       )}
+
+      {/* Rename dialog */}
+      <Dialog
+        open={!!renameTarget}
+        onOpenChange={(open) => {
+          if (!open) setRenameTarget(null);
+        }}
+      >
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Rename project</DialogTitle>
+            <DialogDescription>
+              Give this project a new name.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            placeholder="Project name"
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleRename();
+            }}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenameTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleRename}
+              disabled={!renameValue.trim() || isRenaming}
+            >
+              {isRenaming ? 'Saving...' : 'Save'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete confirmation */}
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete project?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete "{deleteTarget?.name}" along with
+              its files and conversations. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={isDeleting}
+            >
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

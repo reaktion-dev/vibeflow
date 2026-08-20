@@ -29,6 +29,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import toast from 'react-hot-toast';
 
 interface VectorMiniEditorProps {
   /** URL that returns the SVG string (the asset API route) */
@@ -155,123 +156,141 @@ export function VectorMiniEditor({ svgUrl, assetId, projectId }: VectorMiniEdito
     setIsLoading(true);
     setError(null);
 
-    fetch(svgUrl)
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.text();
-      })
-      .then(async (svgString) => {
-        if (cancelled) return;
-
-        const app = appRef.current!;
-        const rootContainer = rootContainerRef.current!;
-
-        // Clear previous content
-        rootContainer.removeChildren();
-        layersRef.current = [];
-        elementsMapRef.current.clear();
-
-        // Parse SVG with DOMParser (reliable, handles all element types)
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(svgString, 'image/svg+xml');
-
-        const parseError = doc.querySelector('parsererror');
-        if (parseError) {
-          throw new Error('Invalid SVG: could not parse');
+    async function load() {
+      // Prefer saved canvas data (persisted editor state) over the asset URL,
+      // so edits survive a remount/reload.
+      let svgString: string | null = null;
+      try {
+        const res = await fetch(`/api/projects/${projectId}/canvas`);
+        if (res.ok) {
+          const json = await res.json();
+          const canvasData = json?.data?.canvasData;
+          if (typeof canvasData === 'string' && canvasData.trim().startsWith('<svg')) {
+            svgString = canvasData;
+          }
         }
+      } catch {
+        // fall back to the asset URL below
+      }
 
-        svgDocRef.current = doc;
-        const svgRoot = doc.documentElement;
+      if (svgString === null) {
+        const res = await fetch(svgUrl);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        svgString = await res.text();
+      }
 
-        // Extract viewBox for sizing
-        const viewBox = svgRoot.getAttribute('viewBox') ?? '0 0 1080 1080';
-        const [, , vbWidth, vbHeight] = viewBox.split(/[\s,]+/).map(Number);
-        const canvasW = vbWidth || 1080;
-        const canvasH = vbHeight || 1080;
+      if (cancelled || svgString === null) return;
 
-        // Parse layers (<g> groups) or fall back to treating the root as one layer
-        const groupElements = Array.from(svgRoot.querySelectorAll(':scope > g'));
-        const layerEntries: LayerEntry[] = [];
+      const app = appRef.current!;
+      const rootContainer = rootContainerRef.current!;
 
-        const groupsToProcess =
-          groupElements.length > 0
-            ? groupElements
-            : [svgRoot as unknown as SVGElement];
+      // Clear previous content
+      rootContainer.removeChildren();
+      layersRef.current = [];
+      elementsMapRef.current.clear();
 
-        for (let i = 0; i < groupsToProcess.length; i++) {
-          const groupEl = groupsToProcess[i] as SVGElement;
-          const layerId =
-            groupEl.getAttribute('id') ?? `layer_${i}`;
-          const layerName =
-            groupEl.getAttribute('data-name') ?? layerId;
+      // Parse SVG with DOMParser (reliable, handles all element types)
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(svgString, 'image/svg+xml');
 
-          const layerContainer = new Container();
-          layerContainer.label = layerId;
-          rootContainer.addChild(layerContainer);
+      const parseError = doc.querySelector('parsererror');
+      if (parseError) {
+        throw new Error('Invalid SVG: could not parse');
+      }
 
-          const elementEntries: ElementEntry[] = [];
+      svgDocRef.current = doc;
+      const svgRoot = doc.documentElement;
 
-          // Process child elements of this group
-          const childElements = getEditableChildren(groupEl);
-          for (let j = 0; j < childElements.length; j++) {
-            const childEl = childElements[j] as SVGElement;
-            const tagName = childEl.tagName.toLowerCase();
-            const elId = childEl.getAttribute('id') ?? `${layerId}_el_${j}`;
-            childEl.setAttribute('id', elId);
+      // Extract viewBox for sizing
+      const viewBox = svgRoot.getAttribute('viewBox') ?? '0 0 1080 1080';
+      const [, , vbWidth, vbHeight] = viewBox.split(/[\s,]+/).map(Number);
+      const canvasW = vbWidth || 1080;
+      const canvasH = vbHeight || 1080;
 
-            const elementType = tagName as ElementType;
-            const displayObject = await createDisplayObject(
-              childEl,
-              elementType,
-              canvasW,
-              canvasH
-            );
+      // Parse layers (<g> groups) or fall back to treating the root as one layer
+      const groupElements = Array.from(svgRoot.querySelectorAll(':scope > g'));
+      const layerEntries: LayerEntry[] = [];
 
-            if (displayObject) {
-              layerContainer.addChild(displayObject);
-            }
+      const groupsToProcess =
+        groupElements.length > 0
+          ? groupElements
+          : [svgRoot as unknown as SVGElement];
 
-            const entry: ElementEntry = {
-              id: elId,
-              type: elementType,
-              name: getChildName(childEl, elementType, j),
-              visible: true,
-              domElement: childEl,
-              displayObject,
-            };
-            elementEntries.push(entry);
-            elementsMapRef.current.set(elId, entry);
+      for (let i = 0; i < groupsToProcess.length; i++) {
+        const groupEl = groupsToProcess[i] as SVGElement;
+        const layerId =
+          groupEl.getAttribute('id') ?? `layer_${i}`;
+        const layerName =
+          groupEl.getAttribute('data-name') ?? layerId;
+
+        const layerContainer = new Container();
+        layerContainer.label = layerId;
+        rootContainer.addChild(layerContainer);
+
+        const elementEntries: ElementEntry[] = [];
+
+        // Process child elements of this group
+        const childElements = getEditableChildren(groupEl);
+        for (let j = 0; j < childElements.length; j++) {
+          const childEl = childElements[j] as SVGElement;
+          const tagName = childEl.tagName.toLowerCase();
+          const elId = childEl.getAttribute('id') ?? `${layerId}_el_${j}`;
+          childEl.setAttribute('id', elId);
+
+          const elementType = tagName as ElementType;
+          const displayObject = await createDisplayObject(
+            childEl,
+            elementType,
+            canvasW,
+            canvasH
+          );
+
+          if (displayObject) {
+            layerContainer.addChild(displayObject);
           }
 
-          layerEntries.push({
-            id: layerId,
-            name: layerName,
+          const entry: ElementEntry = {
+            id: elId,
+            type: elementType,
+            name: getChildName(childEl, elementType, j),
             visible: true,
-            container: layerContainer,
-            elements: elementEntries,
-          });
+            domElement: childEl,
+            displayObject,
+          };
+          elementEntries.push(entry);
+          elementsMapRef.current.set(elId, entry);
         }
 
-        if (cancelled) return;
+        layerEntries.push({
+          id: layerId,
+          name: layerName,
+          visible: true,
+          container: layerContainer,
+          elements: elementEntries,
+        });
+      }
 
-        layersRef.current = layerEntries;
-        setLayers(layerEntries);
-        setIsLoading(false);
+      if (cancelled) return;
 
-        // Fit to view
-        fitToView(app, rootContainer, canvasW, canvasH);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        console.error('[mini-editor] SVG load failed:', err);
-        setError(err.message ?? 'Failed to load SVG');
-        setIsLoading(false);
-      });
+      layersRef.current = layerEntries;
+      setLayers(layerEntries);
+      setIsLoading(false);
+
+      // Fit to view
+      fitToView(app, rootContainer, canvasW, canvasH);
+    }
+
+    load().catch((err) => {
+      if (cancelled) return;
+      console.error('[mini-editor] SVG load failed:', err);
+      setError(err.message ?? 'Failed to load SVG');
+      setIsLoading(false);
+    });
 
     return () => {
       cancelled = true;
     };
-  }, [svgUrl]);
+  }, [svgUrl, projectId]);
 
   // ─── Selection ────────────────────────────────────────────────────────────────
 
@@ -406,15 +425,25 @@ export function VectorMiniEditor({ svgUrl, assetId, projectId }: VectorMiniEdito
   );
 
   // ─── Zoom ─────────────────────────────────────────────────────────────────────
+  // React attaches wheel listeners as passive, so e.preventDefault() there is
+  // ignored (the page scrolls while zooming). Use a native non-passive listener.
 
-  const handleWheel = useCallback((e: React.WheelEvent) => {
-    if (!rootContainerRef.current) return;
-    e.preventDefault();
-    const container = rootContainerRef.current;
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    const newScale = Math.min(10, Math.max(0.1, container.scale.x * delta));
-    container.scale.set(newScale);
-    setZoom(newScale);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const onWheel = (e: WheelEvent) => {
+      const container = rootContainerRef.current;
+      if (!container) return;
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? 0.9 : 1.1;
+      const newScale = Math.min(10, Math.max(0.1, container.scale.x * delta));
+      container.scale.set(newScale);
+      setZoom(newScale);
+    };
+
+    canvas.addEventListener('wheel', onWheel, { passive: false });
+    return () => canvas.removeEventListener('wheel', onWheel);
   }, []);
 
   // ─── Export edited SVG ───────────────────────────────────────────────────────
@@ -427,17 +456,24 @@ export function VectorMiniEditor({ svgUrl, assetId, projectId }: VectorMiniEdito
       const serializer = new XMLSerializer();
       const svgString = serializer.serializeToString(svgDocRef.current.documentElement);
 
-      // Export as raster via the API route
-      await fetch(`/api/projects/${projectId}/export`, {
+      // Export as raster via the API route. Send the edited SVG string so the
+      // export reflects in-memory edits, not the original stored asset.
+      const res = await fetch(`/api/projects/${projectId}/export`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           svgAssetId: assetId,
+          svg: svgString,
           name: 'edited-design',
           format: 'png',
           scale: 2,
         }),
       });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error ?? `Export failed (HTTP ${res.status})`);
+      }
 
       // Also download the edited SVG
       const blob = new Blob([svgString], { type: 'image/svg+xml' });
@@ -447,8 +483,11 @@ export function VectorMiniEditor({ svgUrl, assetId, projectId }: VectorMiniEdito
       a.download = 'edited-design.svg';
       a.click();
       URL.revokeObjectURL(url);
+
+      toast.success('Exported edited design');
     } catch (err) {
       console.error('[mini-editor] Export failed:', err);
+      toast.error(err instanceof Error ? err.message : 'Export failed');
     } finally {
       setIsExporting(false);
     }
@@ -543,10 +582,7 @@ export function VectorMiniEditor({ svgUrl, assetId, projectId }: VectorMiniEdito
 
       <div className="flex flex-1 overflow-hidden">
         {/* Canvas area */}
-        <div
-          className="relative flex-1 overflow-hidden bg-muted/30"
-          onWheel={handleWheel}
-        >
+        <div className="relative flex-1 overflow-hidden bg-muted/30">
           {isLoading && (
             <div className="absolute inset-0 flex items-center justify-center">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -950,11 +986,61 @@ function fitToView(app: Application, container: Container, contentW: number, con
 }
 
 /**
- * Convert a hex color string (#ff0000) to a number (0xff0000).
+ * Convert a CSS color string to a number (0xRRGGBB) for PixiJS.
+ * Handles #rgb, #rrggbb, and common named colors; falls back to red.
  */
+const NAMED_COLORS: Record<string, string> = {
+  black: '#000000',
+  white: '#ffffff',
+  red: '#ff0000',
+  green: '#008000',
+  blue: '#0000ff',
+  yellow: '#ffff00',
+  orange: '#ffa500',
+  purple: '#800080',
+  pink: '#ffc0cb',
+  gray: '#808080',
+  grey: '#808080',
+  silver: '#c0c0c0',
+  maroon: '#800000',
+  navy: '#000080',
+  teal: '#008080',
+  aqua: '#00ffff',
+  cyan: '#00ffff',
+  fuchsia: '#ff00ff',
+  magenta: '#ff00ff',
+  lime: '#00ff00',
+  olive: '#808000',
+  gold: '#ffd700',
+  coral: '#ff7f50',
+  tomato: '#ff6347',
+  brown: '#a52a2a',
+  indigo: '#4b0082',
+  violet: '#ee82ee',
+  khaki: '#f0e68c',
+  beige: '#f5f5dc',
+  salmon: '#fa8072',
+  transparent: '#000000',
+};
+
 function hexToNumber(hex: string): number {
-  const cleaned = hex.replace('#', '');
-  return parseInt(cleaned, 16);
+  const trimmed = (hex ?? '').trim().toLowerCase();
+  if (!trimmed) return 0xff0000;
+
+  if (trimmed in NAMED_COLORS) {
+    return parseInt(NAMED_COLORS[trimmed].replace('#', ''), 16);
+  }
+
+  const cleaned = trimmed.replace(/^#/, '');
+  if (/^[0-9a-f]{3}$/.test(cleaned)) {
+    const [r, g, b] = cleaned.split('');
+    return parseInt(`${r}${r}${g}${g}${b}${b}`, 16);
+  }
+  if (/^[0-9a-f]{6}$/.test(cleaned)) {
+    return parseInt(cleaned, 16);
+  }
+
+  return 0xff0000; // fallback: red
 }
 
 /**

@@ -3,8 +3,12 @@ export interface Project {
   id: string;
   name: string;
   description?: string;
+  type?: 'code' | 'design' | 'video' | 'flow';
+  status?: 'active' | 'archived' | 'deleted';
   gitUrl?: string;
+  gitBranch?: string;
   sandboxId: string;
+  template?: string;
   createdAt: Date;
   updatedAt: Date;
 }

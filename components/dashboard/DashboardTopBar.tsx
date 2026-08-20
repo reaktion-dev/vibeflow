@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { Search, HelpCircle, User, Sparkles } from 'lucide-react';
+import { Search, User, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { focusDashboardPrompt } from './prompt-focus';
@@ -75,19 +75,10 @@ export function DashboardTopBar({
           variant="ghost"
           size="sm"
           className="hidden gap-1.5 text-muted-foreground hover:text-foreground sm:flex"
+          onClick={focusDashboardPrompt}
         >
           <Sparkles className="h-3.5 w-3.5" />
           AI Assist
-        </Button>
-
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className="text-muted-foreground hover:text-foreground"
-          title="Get help"
-          aria-label="Get help"
-        >
-          <HelpCircle className="h-4 w-4" />
         </Button>
       </div>
     </header>

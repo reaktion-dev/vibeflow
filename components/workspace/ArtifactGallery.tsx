@@ -1,8 +1,21 @@
 'use client';
 
+import { useState } from 'react';
 import useSWR from 'swr';
-import { Image as ImageIcon, FileText, Film, Workflow, Loader2, Trash2 } from 'lucide-react';
+import { Image as ImageIcon, FileText, Film, Workflow, Loader2, Trash2, ImageOff } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { cn } from '@/lib/utils';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 interface ArtifactGalleryProps {
   projectId: string;
@@ -43,13 +56,20 @@ export function ArtifactGallery({ projectId, selectedAssetId, onSelect }: Artifa
 
   const assets = data?.data ?? [];
 
-  const handleDelete = async (assetId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleDelete = async (assetId: string) => {
     try {
-      await fetch(`/api/projects/${projectId}/assets?assetId=${assetId}`, { method: 'DELETE' });
+      const res = await fetch(`/api/projects/${projectId}/assets?assetId=${assetId}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error ?? `Failed to delete asset (HTTP ${res.status})`);
+      }
+      toast.success('Asset deleted');
       mutate();
-    } catch {
-      // ignore
+    } catch (err) {
+      console.error('Failed to delete asset:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to delete asset');
     }
   };
 
@@ -92,11 +112,9 @@ export function ArtifactGallery({ projectId, selectedAssetId, onSelect }: Artifa
                 {/* Thumbnail */}
                 <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-muted/50">
                   {isVisual && !isPending ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
+                    <Thumbnail
                       src={`/api/projects/${projectId}/assets/${asset.id}`}
                       alt={asset.name}
-                      className="h-full w-full object-cover"
                     />
                   ) : isPending ? (
                     <div className="flex h-full w-full items-center justify-center">
@@ -120,15 +138,35 @@ export function ArtifactGallery({ projectId, selectedAssetId, onSelect }: Artifa
                   </p>
                 </div>
 
-                {/* Delete button (appears on hover) */}
+                {/* Delete button (always visible — confirmation dialog guards it) */}
                 {!isPending && (
-                  <button
-                    onClick={(e) => handleDelete(asset.id, e)}
-                    className="absolute right-1.5 top-1.5 hidden rounded-md p-1 text-muted-foreground/60 transition-all duration-150 hover:bg-destructive/10 hover:text-destructive group-hover:block"
-                    title="Delete asset"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </button>
+                  <AlertDialog>
+                    <AlertDialogTrigger
+                      onClick={(e) => e.stopPropagation()}
+                      className="absolute right-1.5 top-1.5 rounded-md p-1 text-muted-foreground/60 transition-all duration-150 hover:bg-destructive/10 hover:text-destructive focus-visible:bg-destructive/10 focus-visible:text-destructive focus-visible:outline-none"
+                      title="Delete asset"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </AlertDialogTrigger>
+                    <AlertDialogContent size="sm">
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete artifact?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          &ldquo;{asset.name}&rdquo; will be permanently removed
+                          from this project. This cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          variant="destructive"
+                          onClick={() => handleDelete(asset.id)}
+                        >
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 )}
               </div>
             );
@@ -136,5 +174,38 @@ export function ArtifactGallery({ projectId, selectedAssetId, onSelect }: Artifa
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Gallery thumbnail with a loading spinner and a broken-image fallback.
+ */
+function Thumbnail({ src, alt }: { src: string; alt: string }) {
+  const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
+
+  return (
+    <>
+      {status === 'error' ? (
+        <div className="flex h-full w-full items-center justify-center">
+          <ImageOff className="h-4 w-4 text-muted-foreground" />
+        </div>
+      ) : (
+        <>
+          {status === 'loading' && (
+            <div className="absolute inset-0 flex items-center justify-center bg-muted/50">
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            </div>
+          )}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={src}
+            alt={alt}
+            onLoad={() => setStatus('loaded')}
+            onError={() => setStatus('error')}
+            className="h-full w-full object-cover"
+          />
+        </>
+      )}
+    </>
   );
 }

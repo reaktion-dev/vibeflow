@@ -10,6 +10,9 @@ const PUBLIC_PREFIXES = [
   "/api/auth",  // all better-auth API routes
 ];
 
+/** Exact-match public routes (prefix matching would expose everything under them) */
+const PUBLIC_EXACT = ["/"]; // landing page must be reachable by guests
+
 /** Routes that authenticated users should be bounced away from */
 const AUTH_ONLY_ROUTES = [
   "/sign-in",
@@ -18,6 +21,7 @@ const AUTH_ONLY_ROUTES = [
 ];
 
 function isPublic(pathname: string) {
+  if (PUBLIC_EXACT.includes(pathname)) return true;
   return PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 }
 

@@ -1,10 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 import { LandingHero } from "@/components/landing/landing-hero";
 import { LandingPromptArea } from "@/components/landing/landing-prompt-area";
 
 export default function LandingPage() {
+  const router = useRouter();
   const [isCreating, setIsCreating] = useState(false);
 
   const handlePromptSubmit = async (message: { text: string; files: any[] }) => {
@@ -22,9 +25,18 @@ export default function LandingPage() {
         }),
       });
 
-      if (!res.ok) throw new Error("Failed to create project");
+      const json = await res.json();
+
+      if (!res.ok || !json?.success) {
+        throw new Error(json?.error || "Failed to create project");
+      }
+
+      router.push(`/projects/${json.data.id}`);
     } catch (error) {
       console.error("Error creating project:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to create project"
+      );
     } finally {
       setIsCreating(false);
     }

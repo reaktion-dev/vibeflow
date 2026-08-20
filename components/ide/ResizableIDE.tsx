@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { ChatSidebar } from '@/components/ai/ChatSidebar';
 import { Button } from '@/components/ui/button';
 import { useFileTree } from '@/hooks/useFileOperations';
+import { useWorkspaceStore } from '@/stores/workspace-store';
 
 import { EditorPane } from './EditorPane';
 import { FileTree } from './FileTree';
@@ -16,9 +16,12 @@ interface ResizableIDEProps {
 }
 
 export function ResizableIDE({ projectId, projectName }: ResizableIDEProps) {
-  const [selectedFile, setSelectedFile] = useState<string | undefined>(undefined);
-  const [showFileTree, setShowFileTree] = useState(true);
-  const [showChat, setShowChat] = useState(true);
+  const selectedFile = useWorkspaceStore((s) => s.selectedFile);
+  const setSelectedFile = useWorkspaceStore((s) => s.setSelectedFile);
+  const showFileTree = useWorkspaceStore((s) => s.showFileTree);
+  const toggleFileTree = useWorkspaceStore((s) => s.toggleFileTree);
+  const showChat = useWorkspaceStore((s) => s.showChat);
+  const toggleChat = useWorkspaceStore((s) => s.toggleChat);
   const { files, isLoading: filesLoading } = useFileTree(projectId, '/');
 
   return (
@@ -54,7 +57,7 @@ export function ResizableIDE({ projectId, projectName }: ResizableIDEProps) {
                 onFileSelect={(path) => {
                   setSelectedFile(path);
                 }}
-                selectedPath={selectedFile}
+                selectedPath={selectedFile ?? undefined}
               />
             </div>
           </div>
@@ -64,7 +67,7 @@ export function ResizableIDE({ projectId, projectName }: ResizableIDEProps) {
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Editor */}
           <div className="flex-1 overflow-auto border-b border-border">
-            <EditorPane projectId={projectId} filePath={selectedFile} />
+            <EditorPane projectId={projectId} filePath={selectedFile ?? undefined} />
           </div>
 
           {/* Terminal */}
@@ -88,7 +91,7 @@ export function ResizableIDE({ projectId, projectName }: ResizableIDEProps) {
       <div className="h-10 border-t border-border bg-card/50 flex items-center justify-between px-4 text-xs text-muted-foreground">
         <div className="flex items-center gap-4">
           <button
-            onClick={() => setShowFileTree(!showFileTree)}
+            onClick={toggleFileTree}
             className="flex items-center gap-1 hover:text-foreground transition"
           >
             {showFileTree ? (
@@ -99,7 +102,7 @@ export function ResizableIDE({ projectId, projectName }: ResizableIDEProps) {
             Files
           </button>
           <button
-            onClick={() => setShowChat(!showChat)}
+            onClick={toggleChat}
             className="flex items-center gap-1 hover:text-foreground transition"
           >
             {showChat ? (

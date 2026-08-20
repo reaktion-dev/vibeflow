@@ -5,6 +5,7 @@ import { Download, Loader2, Maximize2, ZoomIn, ZoomOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import toast from 'react-hot-toast';
 
 /**
  * Fetch an SVG asset URL and render it inline as real vector markup.
@@ -48,7 +49,10 @@ function InlineSvg({ src, alt, zoom }: { src: string; alt: string; zoom: number 
 
   return (
     <div
-      className="max-w-full max-h-full [&>svg]:max-h-[70vh] [&>svg]:max-w-full [&>svg]:h-auto [&>svg]:w-auto"
+      // Flex container fills the scrollable preview area; the SVG shrinks to
+      // fit via flex constraints and the parent's overflow-auto scrolls when
+      // the zoom transform grows it (no fixed height cap to clip against).
+      className="flex h-full w-full items-center justify-center [&>svg]:max-h-full [&>svg]:max-w-full [&>svg]:h-auto [&>svg]:w-auto"
       style={{
         transform: `scale(${zoom})`,
         transformOrigin: 'center',
@@ -65,6 +69,7 @@ interface ArtifactPreviewProps {
   assetName?: string;
   assetType?: string;
   assetMimeType?: string | null;
+  assetSizeBytes?: number | null;
 }
 
 interface AssetDetail {
@@ -83,6 +88,7 @@ export function ArtifactPreview({
   assetName,
   assetType,
   assetMimeType,
+  assetSizeBytes,
 }: ArtifactPreviewProps) {
   const [asset, setAsset] = useState<AssetDetail | null>(null);
   const [zoom, setZoom] = useState(1);
@@ -105,11 +111,11 @@ export function ArtifactPreview({
       name: assetName ?? 'Asset',
       type: assetType ?? 'unknown',
       mimeType: assetMimeType ?? null,
-      sizeBytes: null,
+      sizeBytes: assetSizeBytes ?? null,
       status: 'ready',
       url: assetUrl ?? undefined,
     });
-  }, [assetId, assetName, assetType, assetMimeType, assetUrl]);
+  }, [assetId, assetName, assetType, assetMimeType, assetUrl, assetSizeBytes]);
 
   // Use passed props as fallback
   const displayName = asset?.name ?? assetName ?? 'Asset';
@@ -122,7 +128,7 @@ export function ArtifactPreview({
     if (!assetId) return;
     setIsExporting(true);
     try {
-      await fetch(`/api/projects/${projectId}/export`, {
+      const res = await fetch(`/api/projects/${projectId}/export`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -132,8 +138,14 @@ export function ArtifactPreview({
           scale: 2,
         }),
       });
-    } catch {
-      // ignore
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error ?? `Export failed (HTTP ${res.status})`);
+      }
+      toast.success(`Exported ${format.toUpperCase()} 2x`);
+    } catch (err) {
+      console.error('Export failed:', err);
+      toast.error(err instanceof Error ? err.message : 'Export failed');
     } finally {
       setIsExporting(false);
     }

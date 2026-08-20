@@ -9,14 +9,23 @@ import type { ExportOptions } from '@/lib/artifacts/render';
 /**
  * POST /api/projects/[id]/export
  * Export an SVG asset as SVG + raster (user-initiated, not via agent).
+ *
+ * Accepts either `svgAssetId` (export the stored asset) or an inline `svg`
+ * string (export user-edited SVG — the mini-editor serializes its in-memory
+ * DOM and sends it here so edits aren't lost).
  */
-const exportSchema = z.object({
-  svgAssetId: z.string(),
-  name: z.string().default('design-export'),
-  format: z.enum(['png', 'jpeg', 'webp']).default('png'),
-  scale: z.union([z.literal(1), z.literal(2)]).default(1),
-  quality: z.number().min(1).max(100).optional(),
-});
+const exportSchema = z
+  .object({
+    svgAssetId: z.string().optional(),
+    svg: z.string().optional(),
+    name: z.string().default('design-export'),
+    format: z.enum(['png', 'jpeg', 'webp']).default('png'),
+    scale: z.union([z.literal(1), z.literal(2)]).default(1),
+    quality: z.number().min(1).max(100).optional(),
+  })
+  .refine((data) => Boolean(data.svgAssetId) || Boolean(data.svg), {
+    message: 'Provide either svgAssetId (stored asset) or svg (inline SVG)',
+  });
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -25,9 +34,21 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const body = exportSchema.parse(await request.json());
 
-    // Download the SVG from R2
-    const svgBuffer = await getAssetBuffer(body.svgAssetId);
-    const svgString = svgBuffer.toString('utf-8');
+    // Prefer an inline SVG string (reflects user edits in the mini-editor),
+    // fall back to the stored asset.
+    let svgString: string;
+    if (body.svg) {
+      svgString = body.svg;
+    } else if (body.svgAssetId) {
+      const svgBuffer = await getAssetBuffer(body.svgAssetId);
+      svgString = svgBuffer.toString('utf-8');
+    } else {
+      // Unreachable — the schema refine requires one of the two.
+      return NextResponse.json(
+        { success: false, error: 'No SVG provided' },
+        { status: 400 }
+      );
+    }
 
     const result = await exportDesign({
       projectId,

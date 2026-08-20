@@ -32,7 +32,7 @@ export const assetSourceSchema = z.object({
   model: z.string(),
   prompt: z.string(),
   seed: z.number().int().optional(),
-  params: z.record(z.unknown()).optional(),
+  params: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const assetMetadataSchema = z.object({
@@ -49,7 +49,7 @@ export const assetMetadataSchema = z.object({
     )
     .default([]),
   // Free-form per-type metadata (dimensions, duration, etc.)
-  extra: z.record(z.unknown()).optional(),
+  extra: z.record(z.string(), z.unknown()).optional(),
 });
 
 // ─── Asset Record (the full row as stored in DB) ────────────────────────────────
@@ -75,6 +75,7 @@ export type AssetRecord = z.infer<typeof assetRecordSchema>;
 // ─── SVG Document (Design workspace mini-editor) ────────────────────────────────
 
 export const svgPathSchema = z.object({
+  type: z.literal('path').default('path').optional(),
   d: z.string(),
   fill: z.string().nullable().optional(),
   stroke: z.string().nullable().optional(),
@@ -201,7 +202,7 @@ export const pipelineStageTypeEnum = z.enum([
 export const pipelineStageSchema = z.object({
   id: z.string(),
   type: pipelineStageTypeEnum,
-  params: z.record(z.unknown()),
+  params: z.record(z.string(), z.unknown()),
 });
 
 export const pipelineManifestSchema = z.object({

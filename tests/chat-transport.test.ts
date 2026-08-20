@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { createProjectChatTransport } from '@/lib/ai/chat-transport';
-import type { UIMessage } from 'ai';
+import type { UIMessage, UIMessageChunk } from 'ai';
 
 const MODEL = 'nvidia/nemotron-3-ultra-550b-a55b:free';
 
@@ -19,9 +19,15 @@ function mockFetch(capture: (body: Record<string, unknown>) => void) {
   };
 }
 
-async function drain(stream: ReadableStream<UIMessage>) {
-  for await (const _chunk of stream) {
-    // no-op: just consume the mocked SSE stream
+async function drain(stream: ReadableStream<UIMessageChunk>) {
+  const reader = stream.getReader();
+  try {
+    while (true) {
+      const { done } = await reader.read();
+      if (done) break;
+    }
+  } finally {
+    reader.releaseLock();
   }
 }
 

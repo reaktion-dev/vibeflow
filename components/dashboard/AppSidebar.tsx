@@ -1,14 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Plus,
   Search,
   FolderOpen,
-  Settings,
-  HelpCircle,
   LogOut,
-  User,
   ChevronDown,
   Code2,
   Palette,
@@ -44,6 +41,8 @@ import {
   SidebarTrigger,
   useSidebar,
 } from '@/components/ui/sidebar';
+import { authClient, useSession } from '@/lib/auth-client';
+import { useProjects } from '@/hooks/useProject';
 import { focusDashboardPrompt } from './prompt-focus';
 
 interface NavItem {
@@ -53,10 +52,39 @@ interface NavItem {
   onClick?: () => void;
 }
 
+const WORKSPACE_TYPES = [
+  { id: 'code', label: 'Code', icon: Code2 },
+  { id: 'design', label: 'Design', icon: Palette },
+  { id: 'video', label: 'Video', icon: Video },
+  { id: 'flow', label: 'Flows', icon: Workflow },
+] as const;
+
 export function AppSidebar() {
   const router = useRouter();
   const pathname = usePathname();
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeType, setActiveType] = useState<string | null>(null);
+  const { data: session, isPending } = useSession();
+  const { projects } = useProjects();
+
+  const user = session?.user;
+  const displayName =
+    user?.name?.trim() || user?.email?.split('@')[0] || 'User';
+  const userEmail = user?.email ?? '';
+  const userInitials = (displayName.trim().charAt(0) || 'U').toUpperCase();
+
+  // Keep the search box and workspace filter in sync with the dashboard's
+  // query params (initial load, cross-page navigation, and back/forward).
+  useEffect(() => {
+    const syncFromUrl = () => {
+      const params = new URLSearchParams(window.location.search);
+      setSearchQuery(params.get('q') ?? '');
+      setActiveType(params.get('type'));
+    };
+    syncFromUrl();
+    window.addEventListener('popstate', syncFromUrl);
+    return () => window.removeEventListener('popstate', syncFromUrl);
+  }, [pathname]);
 
   const startNewProject = () => {
     // If the dashboard composer is already mounted, jump to it;
@@ -71,6 +99,38 @@ export function AppSidebar() {
     }
   };
 
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    // Mirror the query into the dashboard URL so the project grid filters too.
+    if (pathname === '/dashboard') {
+      const params = new URLSearchParams(window.location.search);
+      if (value) params.set('q', value);
+      else params.delete('q');
+      const qs = params.toString();
+      router.replace(qs ? `/dashboard?${qs}` : '/dashboard');
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await authClient.signOut();
+    } finally {
+      router.push('/sign-in');
+    }
+  };
+
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const matchingProjects = normalizedQuery
+    ? projects.filter((project) => {
+        const name = (project.name ?? '').toLowerCase();
+        const description = (project.description ?? '').toLowerCase();
+        return (
+          name.includes(normalizedQuery) ||
+          description.includes(normalizedQuery)
+        );
+      })
+    : [];
+
   const mainNavItems: NavItem[] = [
     {
       icon: <Plus className="h-4 w-4" />,
@@ -81,19 +141,6 @@ export function AppSidebar() {
       icon: <FolderOpen className="h-4 w-4" />,
       label: 'Projects',
       href: '/dashboard',
-    },
-  ];
-
-  const bottomNavItems: NavItem[] = [
-    {
-      icon: <Settings className="h-4 w-4" />,
-      label: 'Settings',
-      href: '/settings',
-    },
-    {
-      icon: <HelpCircle className="h-4 w-4" />,
-      label: 'Help',
-      href: '/help',
     },
   ];
 
@@ -126,10 +173,33 @@ export function AppSidebar() {
               type="text"
               placeholder="Search projects..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
               className="w-full rounded-lg border border-border bg-muted py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
           </div>
+
+          {/* Live search results */}
+          {normalizedQuery && (
+            <div className="mt-2 overflow-hidden rounded-lg border border-border/60 bg-card/60">
+              {matchingProjects.length === 0 ? (
+                <p className="px-3 py-2 text-xs text-muted-foreground">
+                  No matching projects
+                </p>
+              ) : (
+                matchingProjects.slice(0, 6).map((project) => (
+                  <button
+                    key={project.id}
+                    type="button"
+                    onClick={() => router.push(`/projects/${project.id}`)}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-foreground transition-colors hover:bg-muted"
+                  >
+                    <FolderOpen className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    <span className="truncate">{project.name}</span>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
         </div>
 
         <SidebarSeparator />
@@ -163,45 +233,23 @@ export function AppSidebar() {
           <SidebarGroupLabel>Workspaces</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton render={<Link href="/dashboard?type=code" />}>
-                  <Code2 className="h-4 w-4" />
-                  <span>Code</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton render={<Link href="/dashboard?type=design" />}>
-                  <Palette className="h-4 w-4" />
-                  <span>Design</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton render={<Link href="/dashboard?type=video" />}>
-                  <Video className="h-4 w-4" />
-                  <span>Video</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton render={<Link href="/dashboard?type=flow" />}>
-                  <Workflow className="h-4 w-4" />
-                  <span>Flows</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup className="mt-auto">
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {bottomNavItems.map((item) => (
-                <SidebarMenuItem key={item.label}>
-                  <SidebarMenuButton render={<Link href={item.href || '#'} />}>
-                    {item.icon}
-                    <span>{item.label}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {WORKSPACE_TYPES.map((type) => {
+                const Icon = type.icon;
+                return (
+                  <SidebarMenuItem key={type.id}>
+                    <SidebarMenuButton
+                      isActive={activeType === type.id}
+                      onClick={() => {
+                        setActiveType(type.id);
+                        router.push(`/dashboard?type=${type.id}`);
+                      }}
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span>{type.label}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -217,34 +265,27 @@ export function AppSidebar() {
             }
           >
             <Avatar className="h-6 w-6">
-              <AvatarImage src="/avatar.png" alt="User" />
-              <AvatarFallback>U</AvatarFallback>
+              <AvatarImage src={user?.image ?? '/avatar.png'} alt={displayName} />
+              <AvatarFallback>{userInitials}</AvatarFallback>
             </Avatar>
-            <span>User</span>
+            <span>{isPending ? 'User' : displayName}</span>
             <ChevronDown className="ml-auto h-4 w-4" />
           </DropdownMenuTrigger>
           <DropdownMenuContent side="top" align="end" className="w-56">
             <DropdownMenuGroup>
               <DropdownMenuLabel>
                 <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none">User</p>
+                  <p className="text-sm font-medium leading-none">
+                    {isPending ? 'User' : displayName}
+                  </p>
                   <p className="text-xs leading-none text-muted-foreground">
-                    user@example.com
+                    {userEmail || 'Signed in'}
                   </p>
                 </div>
               </DropdownMenuLabel>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <User className="mr-2 h-4 w-4" />
-              <span>Profile</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <Settings className="mr-2 h-4 w-4" />
-              <span>Settings</span>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => router.push('/sign-in')}>
+            <DropdownMenuItem onClick={handleSignOut}>
               <LogOut className="mr-2 h-4 w-4" />
               <span>Log out</span>
             </DropdownMenuItem>

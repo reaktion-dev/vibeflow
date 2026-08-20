@@ -67,9 +67,9 @@ export async function getProjectBudget(projectId: string): Promise<BudgetState> 
   return {
     projectId,
     budgetCents: budget.budgetCents,
-    spentCents: budget.spentCents,
-    overBudget: budget.overBudget,
-    remainingCents: budget.budgetCents - budget.spentCents,
+    spentCents: budget.spentCents ?? 0,
+    overBudget: budget.overBudget ?? false,
+    remainingCents: budget.budgetCents - (budget.spentCents ?? 0),
   };
 }
 

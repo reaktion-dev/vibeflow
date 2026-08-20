@@ -36,7 +36,7 @@
   --sidebar-border: oklch(1.0000 0 0);
   --sidebar-ring: oklch(0.6770 0.1511 36.8636);
   --font-sans: Outfit, sans-serif;
-  --font-serif: Oxanium, sans-serif;
+  --font-serif: Fraunces, serif; /* display serif — brand wordmark & auth titles */
   --font-mono: JetBrains Mono, monospace;
   --radius: 1.05rem;
   --shadow-x: 0px;
@@ -45,16 +45,15 @@
   --shadow-spread: 0px;
   --shadow-opacity: 0.1;
   --shadow-color: #1a1a1a;
-  --shadow-2xs: 0px 1px 3px 0px hsl(0 0% 10.1961% / 0.05);
-  --shadow-xs: 0px 1px 3px 0px hsl(0 0% 10.1961% / 0.05);
   --shadow-sm: 0px 1px 3px 0px hsl(0 0% 10.1961% / 0.10), 0px 1px 2px -1px hsl(0 0% 10.1961% / 0.10);
   --shadow: 0px 1px 3px 0px hsl(0 0% 10.1961% / 0.10), 0px 1px 2px -1px hsl(0 0% 10.1961% / 0.10);
   --shadow-md: 0px 1px 3px 0px hsl(0 0% 10.1961% / 0.10), 0px 2px 4px -1px hsl(0 0% 10.1961% / 0.10);
   --shadow-lg: 0px 1px 3px 0px hsl(0 0% 10.1961% / 0.10), 0px 4px 6px -1px hsl(0 0% 10.1961% / 0.10);
   --shadow-xl: 0px 1px 3px 0px hsl(0 0% 10.1961% / 0.10), 0px 8px 10px -1px hsl(0 0% 10.1961% / 0.10);
   --shadow-2xl: 0px 1px 3px 0px hsl(0 0% 10.1961% / 0.25);
-  --tracking-normal: 0em;
-  --spacing: 0.2rem;
+  /* Spacing base unit — Tailwind v4 default. Restored from 0.2rem (was shrinking
+     every spacing utility ~20% and causing the cramped density across the app). */
+  --spacing: 0.25rem;
 }
 
 .dark {
@@ -91,7 +90,7 @@
   --sidebar-border: oklch(0.4100 0.0316 268.3338);
   --sidebar-ring: oklch(0.6770 0.1511 36.8636);
   --font-sans: Outfit, sans-serif;
-  --font-serif: Oxanium, sans-serif;
+  --font-serif: Fraunces, serif; /* display serif — brand wordmark & auth titles */
   --font-mono: JetBrains Mono, monospace;
   --radius: 1.05rem;
   --shadow-x: 0px;
@@ -100,8 +99,6 @@
   --shadow-spread: 0px;
   --shadow-opacity: 0.1;
   --shadow-color: #1a1a1a;
-  --shadow-2xs: 0px 1px 3px 0px hsl(0 0% 10.1961% / 0.05);
-  --shadow-xs: 0px 1px 3px 0px hsl(0 0% 10.1961% / 0.05);
   --shadow-sm: 0px 1px 3px 0px hsl(0 0% 10.1961% / 0.10), 0px 1px 2px -1px hsl(0 0% 10.1961% / 0.10);
   --shadow: 0px 1px 3px 0px hsl(0 0% 10.1961% / 0.10), 0px 1px 2px -1px hsl(0 0% 10.1961% / 0.10);
   --shadow-md: 0px 1px 3px 0px hsl(0 0% 10.1961% / 0.10), 0px 2px 4px -1px hsl(0 0% 10.1961% / 0.10);
@@ -153,8 +150,6 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 
-  --shadow-2xs: var(--shadow-2xs);
-  --shadow-xs: var(--shadow-xs);
   --shadow-sm: var(--shadow-sm);
   --shadow: var(--shadow);
   --shadow-md: var(--shadow-md);

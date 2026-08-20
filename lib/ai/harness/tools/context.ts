@@ -47,5 +47,5 @@ export function getToolContext(): ToolContext {
  * Get the current tool context, or null if outside a context.
  */
 export function getToolContextOrNull(): ToolContext | null {
-  return toolContextStorage.getStore();
+  return toolContextStorage.getStore() ?? null;
 }

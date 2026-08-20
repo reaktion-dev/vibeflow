@@ -12,6 +12,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { authClient, useSession } from "@/lib/auth-client";
+import { focusDashboardPrompt } from "@/components/dashboard/prompt-focus";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -67,29 +68,17 @@ export function LandingTopBar({
   const userEmail = user?.email ?? null;
   const userInitials = useMemo(() => getInitials(displayName), [displayName]);
 
-  const focusPromptComposer = useCallback(() => {
-    const promptContainer = document.getElementById("landing-prompt-area");
-    promptContainer?.scrollIntoView({ behavior: "smooth", block: "center" });
-
-    window.setTimeout(() => {
-      const textarea = document.getElementById(
-        "landing-prompt-textarea"
-      ) as HTMLTextAreaElement | null;
-      textarea?.focus();
-    }, 120);
-  }, []);
-
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key.toLowerCase() === "k" && (event.metaKey || event.ctrlKey)) {
         event.preventDefault();
-        focusPromptComposer();
+        focusDashboardPrompt();
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [focusPromptComposer]);
+  }, []);
 
   const handleOpenApp = useCallback(() => {
     router.push("/dashboard");
@@ -154,7 +143,7 @@ export function LandingTopBar({
 
             <button
               type="button"
-              onClick={isAuthenticated ? handleOpenApp : focusPromptComposer}
+              onClick={isAuthenticated ? handleOpenApp : focusDashboardPrompt}
               className="flex min-w-0 items-center gap-1 transition-colors hover:text-foreground"
             >
               <span className="truncate">{projectName}</span>
@@ -167,7 +156,7 @@ export function LandingTopBar({
       <div className="flex items-center gap-2">
         <button
           type="button"
-          onClick={focusPromptComposer}
+          onClick={focusDashboardPrompt}
           className="hidden items-center gap-2 rounded-lg border border-border/40 bg-muted/30 px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:border-border hover:bg-muted/50 hover:text-foreground sm:flex"
           title="Focus prompt composer"
         >
@@ -228,7 +217,7 @@ export function LandingTopBar({
 
                 <DropdownMenuSeparator />
 
-                <DropdownMenuItem onClick={focusPromptComposer}>
+                <DropdownMenuItem onClick={focusDashboardPrompt}>
                   <Sparkles className="h-4 w-4" />
                   <span>Start a new project idea</span>
                 </DropdownMenuItem>

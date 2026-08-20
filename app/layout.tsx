@@ -1,8 +1,30 @@
 import { Analytics } from '@vercel/analytics/next';
 import type { Metadata, Viewport } from 'next';
+import { Fraunces, JetBrains_Mono, Outfit } from 'next/font/google';
 import NextTopLoader from 'nextjs-toploader';
+import { Toaster } from 'react-hot-toast';
+import { SWRConfig } from 'swr';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import './globals.css';
+
+const sans = Outfit({
+  subsets: ['latin'],
+  variable: '--font-sans',
+  display: 'swap',
+});
+
+const serif = Fraunces({
+  subsets: ['latin'],
+  axes: ['opsz'],
+  variable: '--font-serif',
+  display: 'swap',
+});
+
+const mono = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-mono',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: 'Vibeflow — Agentic Development & Content Creation Platform',
@@ -22,7 +44,7 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   colorScheme: 'dark',
-  themeColor: '#0a0a0f',
+  themeColor: '#1f2838', // matches dark --background (oklch(0.2759 0.0325 261.6825))
 };
 
 export default function RootLayout({
@@ -32,9 +54,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
-      <body className="antialiased bg-background text-foreground">
+      <body
+        className={`${sans.variable} ${serif.variable} ${mono.variable} antialiased bg-background text-foreground`}
+      >
         <NextTopLoader
-          color="#6366f1"
+          color="#0080B9" // matches dark --primary (oklch(0.5699 0.1271 238.3563))
           initialPosition={0.08}
           crawlSpeed={200}
           height={3}
@@ -42,12 +66,21 @@ export default function RootLayout({
           showSpinner={false}
           easing="ease"
           speed={200}
-          shadow="0 0 10px #6366f1, 0 0 5px #6366f1"
+          shadow="0 0 10px #0080B9, 0 0 5px #0080B9"
         />
-        <TooltipProvider>
-          {children}
-          {process.env.NODE_ENV === 'production' && <Analytics />}
-        </TooltipProvider>
+        <SWRConfig
+          value={{
+            dedupingInterval: 2000,
+            errorRetryCount: 2,
+            revalidateOnFocus: false,
+          }}
+        >
+          <TooltipProvider>
+            {children}
+            {process.env.NODE_ENV === 'production' && <Analytics />}
+          </TooltipProvider>
+        </SWRConfig>
+        <Toaster position="bottom-right" />
       </body>
     </html>
   );

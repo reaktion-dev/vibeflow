@@ -83,6 +83,9 @@ export function ChatPanelComposer({
 }: ChatPanelComposerProps) {
   const [input, setInput] = useState('');
   const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
+  // Suggestions are onboarding affordances — hide them once the user has
+  // sent their first message so the composer doesn't grow forever.
+  const [hasSentMessage, setHasSentMessage] = useState(false);
 
   const suggestions = projectType === 'design'
     ? DESIGN_SUGGESTIONS
@@ -113,27 +116,36 @@ export function ChatPanelComposer({
 
   const isSubmitting = status === 'submitted' || status === 'streaming';
 
+  const handleSubmit = async ({ text }: { text: string }) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    setHasSentMessage(true);
+    await onSubmit(trimmed);
+    setInput('');
+  };
+
   return (
     <div className="border-t border-border bg-background/80 backdrop-blur-sm">
-      <Suggestions className="px-3 pt-3">
-        {suggestions.map((suggestion) => (
-          <Suggestion
-            key={suggestion}
-            onClick={(value) => void onSubmit(value)}
-            suggestion={suggestion}
-            variant="outline"
-          />
-        ))}
-      </Suggestions>
+      {!hasSentMessage && (
+        <Suggestions className="px-3 pt-3">
+          {suggestions.map((suggestion) => (
+            <Suggestion
+              key={suggestion}
+              disabled={isSubmitting}
+              onClick={(value) => {
+                setHasSentMessage(true);
+                void onSubmit(value);
+              }}
+              suggestion={suggestion}
+              variant="outline"
+            />
+          ))}
+        </Suggestions>
+      )}
 
       <div className="p-3 pt-2">
         <PromptInput
-          onSubmit={async ({ text }) => {
-            const trimmed = text.trim();
-            if (!trimmed) return;
-            await onSubmit(trimmed);
-            setInput('');
-          }}
+          onSubmit={handleSubmit}
         >
           <PromptInputBody>
             <PromptInputTextarea

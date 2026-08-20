@@ -48,7 +48,7 @@ export function ChatPanelConversation({
             return (
               <div key={message.id}>
                 {showSeparator && (
-                  <div className="my-4 flex items-center gap-3" aria-hidden>
+                  <div className="flex items-center gap-3" aria-hidden>
                     <div className="h-px flex-1 bg-border/60" />
                     <div className="size-1 rounded-full bg-border" />
                     <div className="h-px flex-1 bg-border/60" />

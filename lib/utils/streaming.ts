@@ -67,8 +67,13 @@ export function createStreamBuffer(flushInterval: number = 100) {
 
     startAutoFlush: (callback: (data: string) => void) => {
       if (timer) clearInterval(timer);
+      const flushBuffer = () => {
+        const result = buffer.join('');
+        buffer = [];
+        return result;
+      };
       timer = setInterval(() => {
-        const data = this.flush();
+        const data = flushBuffer();
         if (data) callback(data);
       }, flushInterval);
 

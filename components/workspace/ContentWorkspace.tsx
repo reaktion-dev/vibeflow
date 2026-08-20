@@ -1,13 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Images } from 'lucide-react';
 import { ChatPanel } from '@/components/ai/chat-panel/ChatPanel';
 import { ArtifactGallery } from '@/components/workspace/ArtifactGallery';
 import { ArtifactPreview } from '@/components/workspace/ArtifactPreview';
+import { BudgetBar } from '@/components/workspace/BudgetBar';
 import { VectorMiniEditor } from '@/components/workspace/editor/VectorMiniEditor';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useWorkspaceStore } from '@/stores/workspace-store';
 
 type ProjectType = 'design' | 'video' | 'flow';
 
@@ -15,13 +17,6 @@ interface ContentWorkspaceProps {
   projectId: string;
   projectName: string;
   projectType: ProjectType;
-}
-
-interface SelectedAsset {
-  id: string;
-  name: string;
-  type: string;
-  mimeType?: string | null;
 }
 
 const workspaceConfig: Record<
@@ -47,17 +42,34 @@ export function ContentWorkspace({
   projectName,
   projectType,
 }: ContentWorkspaceProps) {
-  const [showChat, setShowChat] = useState(true);
-  const [showGallery, setShowGallery] = useState(true);
-  const [selectedAsset, setSelectedAsset] = useState<SelectedAsset | null>(null);
+  const showChat = useWorkspaceStore((s) => s.showChat);
+  const setShowChat = useWorkspaceStore((s) => s.setShowChat);
+  const showGallery = useWorkspaceStore((s) => s.showGallery);
+  const setShowGallery = useWorkspaceStore((s) => s.setShowGallery);
+  const toggleGallery = useWorkspaceStore((s) => s.toggleGallery);
+  const selectedAsset = useWorkspaceStore((s) => s.selectedAsset);
+  const setSelectedAsset = useWorkspaceStore((s) => s.setSelectedAsset);
   const config = workspaceConfig[projectType];
 
-  const handleSelectAsset = (assetId: string, asset: { name: string; type: string; mimeType?: string | null }) => {
+  // On small screens, collapse the side panels by default so the canvas keeps
+  // usable width (desktop keeps the full three-pane layout).
+  useEffect(() => {
+    if (window.matchMedia('(max-width: 1023.98px)').matches) {
+      setShowChat(false);
+      setShowGallery(false);
+    }
+  }, [setShowChat, setShowGallery]);
+
+  const handleSelectAsset = (
+    assetId: string,
+    asset: { name: string; type: string; mimeType?: string | null; sizeBytes?: number | null }
+  ) => {
     setSelectedAsset({
       id: assetId,
       name: asset.name,
       type: asset.type,
       mimeType: asset.mimeType,
+      sizeBytes: asset.sizeBytes ?? null,
     });
   };
 
@@ -71,11 +83,11 @@ export function ContentWorkspace({
     : null;
 
   return (
-    <div className="flex h-screen w-full bg-background">
+    <div className="relative flex h-screen w-full bg-background">
       {/* Main content area — artifact gallery + preview/editor */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex h-12 items-center justify-between border-b border-border bg-card/50 px-4 backdrop-blur-sm">
+        <div className="flex h-12 items-center justify-between border-b border-border/40 bg-background/80 px-4 backdrop-blur-sm">
           <div className="flex items-center gap-2">
             <div
               className={cn(
@@ -89,11 +101,12 @@ export function ContentWorkspace({
             <span className="text-xs text-muted-foreground">/ {config.label}</span>
           </div>
           <div className="flex items-center gap-2">
+            <BudgetBar projectId={projectId} />
             <Button
               variant="ghost"
               size="sm"
               className="text-xs"
-              onClick={() => setShowGallery(!showGallery)}
+              onClick={toggleGallery}
             >
               {showGallery ? (
                 <ChevronLeft className="mr-1 h-4 w-4" />
@@ -106,9 +119,16 @@ export function ContentWorkspace({
         </div>
 
         {/* Gallery + Preview/Editor */}
-        <div className="flex flex-1 overflow-hidden">
+        <div className="relative flex flex-1 overflow-hidden">
           {showGallery && (
-            <div className="w-72 border-r border-border bg-card flex flex-col">
+            <div
+              className={cn(
+                'flex flex-col border-r border-border bg-card',
+                // Desktop: static panel. Mobile: overlay drawer so the canvas
+                // keeps usable width on small screens.
+                'absolute inset-y-0 left-0 z-30 w-64 shadow-xl lg:static lg:z-auto lg:w-72 lg:shadow-none'
+              )}
+            >
               <div className="flex items-center gap-2 border-b border-border p-3">
                 <Images className="h-4 w-4 text-muted-foreground" />
                 <h3 className="text-xs font-semibold text-foreground">Artifacts</h3>
@@ -137,6 +157,7 @@ export function ContentWorkspace({
                 assetName={selectedAsset.name}
                 assetType={selectedAsset.type}
                 assetMimeType={selectedAsset.mimeType}
+                assetSizeBytes={selectedAsset.sizeBytes}
               />
             )
           ) : (
@@ -157,7 +178,13 @@ export function ContentWorkspace({
 
       {/* Chat sidebar */}
       {showChat && (
-        <div className="w-96 border-l border-border bg-card flex flex-col">
+        <div
+          className={cn(
+            'flex flex-col border-l border-border bg-card',
+            // Desktop: static panel. Mobile: overlay drawer.
+            'absolute inset-y-0 right-0 z-30 w-80 shadow-xl lg:static lg:z-auto lg:w-96 lg:shadow-none'
+          )}
+        >
           <ChatPanel projectId={projectId} projectType={projectType} />
         </div>
       )}
@@ -172,6 +199,7 @@ export function ContentWorkspace({
           Chat
         </button>
       )}
+
     </div>
   );
 }

@@ -1,8 +1,8 @@
 'use client';
 
 import { useChat } from '@ai-sdk/react';
-import { lastAssistantMessageIsCompleteWithApprovalResponses } from 'ai';
-import { useMemo, useState } from 'react';
+import { lastAssistantMessageIsCompleteWithApprovalResponses, type UIMessage } from 'ai';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 
 import { createProjectChatTransport } from '@/lib/ai/chat-transport';
@@ -13,6 +13,34 @@ interface UseProjectAgentChatOptions {
   projectId: string;
   projectType?: 'code' | 'design' | 'video' | 'flow';
   currentFile?: string;
+}
+
+/** Minimal shape of a persisted chat message row returned by GET /chat. */
+interface ChatHistoryRow {
+  id: string;
+  role: 'user' | 'assistant' | 'system' | 'tool';
+  content: string;
+}
+
+/** Minimal shape of a conversation row returned by GET /conversations. */
+export interface ConversationSummary {
+  id: string;
+  title: string | null;
+  updatedAt?: string | null;
+}
+
+/**
+ * Persisted chat rows are plain text blobs. Map them to the UIMessage shape
+ * the chat hook + renderer expect (a single text part per message).
+ */
+function mapHistoryToUIMessages(rows: ChatHistoryRow[]): UIMessage[] {
+  return rows
+    .filter((row) => row.role === 'user' || row.role === 'assistant')
+    .map((row) => ({
+      id: row.id,
+      role: row.role === 'user' ? 'user' : 'assistant',
+      parts: [{ type: 'text' as const, text: row.content }],
+    }));
 }
 
 /**
@@ -37,9 +65,11 @@ export function useProjectAgentChat({
     modelList[0]?.id ?? 'anthropic/claude-sonnet-4-6'
   );
 
-  // The harness session persists on the server, so we don't need to load history.
-  // Messages appear in real-time as the stream progresses.
-  const [isLoadingHistory] = useState(false);
+  // Active server conversation. `undefined` until the server confirms one
+  // (from history load or the first POST).
+  const [conversationId, setConversationId] = useState<string | undefined>(undefined);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
 
   const transport = useMemo(
     () => createProjectChatTransport({ projectId, model: selectedModel, currentFile }),
@@ -55,19 +85,106 @@ export function useProjectAgentChat({
     },
   });
 
+  // Guards against out-of-order history responses when switching quickly.
+  const historyRequestRef = useRef(0);
+
+  const loadHistory = useCallback(
+    async (targetConversationId?: string) => {
+      const requestId = ++historyRequestRef.current;
+      setIsLoadingHistory(true);
+      try {
+        const query = targetConversationId
+          ? `?conversationId=${encodeURIComponent(targetConversationId)}`
+          : '';
+        const res = await fetch(`/api/projects/${projectId}/chat${query}`);
+        const json = (await res.json()) as {
+          success?: boolean;
+          data?: ChatHistoryRow[];
+          conversationId?: string;
+        };
+        if (requestId !== historyRequestRef.current) return; // stale response
+        if (json.success && Array.isArray(json.data)) {
+          chat.setMessages(mapHistoryToUIMessages(json.data));
+          if (json.conversationId) setConversationId(json.conversationId);
+        }
+      } catch {
+        // Best-effort: keep whatever is on screen.
+      } finally {
+        if (requestId === historyRequestRef.current) setIsLoadingHistory(false);
+      }
+    },
+    [projectId, chat.setMessages]
+  );
+
+  // Load the latest active conversation's history on mount.
+  useEffect(() => {
+    void loadHistory();
+  }, [loadHistory]);
+
+  const refreshConversations = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/projects/${projectId}/conversations`);
+      const json = (await res.json()) as {
+        success?: boolean;
+        data?: ConversationSummary[];
+      };
+      if (json.success && Array.isArray(json.data)) {
+        setConversations(json.data);
+      }
+    } catch {
+      // Best-effort.
+    }
+  }, [projectId]);
+
   const sendTextMessage = async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed) return;
 
-    await chat.sendMessage({ text: trimmed });
+    // conversationId flows into the POST body via the transport's
+    // prepareSendMessagesRequest (it spreads the request body).
+    await chat.sendMessage({ text: trimmed }, { body: { conversationId } });
+    // The server may have created the conversation on first send.
+    void refreshConversations();
   };
 
-  const clearMessages = () => {
+  const switchConversation = useCallback(
+    async (id: string) => {
+      void chat.stop(); // Don't let an in-flight stream append to the wrong thread.
+      setConversationId(id);
+      chat.clearError();
+      await loadHistory(id);
+    },
+    [chat.clearError, chat.stop, loadHistory]
+  );
+
+  const createConversation = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/projects/${projectId}/conversations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const json = (await res.json()) as { success?: boolean; data?: { id?: string } };
+      if (json.success && json.data?.id) {
+        setConversationId(json.data.id);
+        chat.setMessages([]);
+        chat.clearError();
+        void refreshConversations();
+      } else {
+        toast.error('Failed to create a new conversation');
+      }
+    } catch {
+      toast.error('Failed to create a new conversation');
+    }
+  }, [projectId, chat.setMessages, chat.clearError, refreshConversations]);
+
+  const clearMessages = useCallback(async () => {
+    // Start a fresh server conversation so the harness session context resets.
+    await createConversation();
+    // Ensure the UI clears even if the server call failed.
     chat.setMessages([]);
     chat.clearError();
-    // Note: This only clears the UI. The harness session state persists on the server.
-    // To fully clear the harness conversation, you'd need a separate API call.
-  };
+  }, [createConversation, chat.setMessages, chat.clearError]);
 
   return {
     ...chat,
@@ -76,6 +193,11 @@ export function useProjectAgentChat({
     setSelectedModel,
     sendTextMessage,
     clearMessages,
+    switchConversation,
+    createConversation,
+    refreshConversations,
+    conversationId,
+    conversations,
     isLoadingHistory,
   };
 }

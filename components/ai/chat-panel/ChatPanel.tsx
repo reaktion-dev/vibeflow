@@ -22,14 +22,19 @@ export function ChatPanel({ projectId, projectType, currentFile }: ChatPanelProp
     addToolApprovalResponse,
     availableModels,
     clearMessages,
+    conversationId,
+    conversations,
+    createConversation,
     error,
     messages,
     regenerate,
+    refreshConversations,
     selectedModel,
     sendTextMessage,
     setSelectedModel,
     status,
     stop,
+    switchConversation,
     isLoadingHistory,
   } = useProjectAgentChat({
     projectId,
@@ -47,10 +52,15 @@ export function ChatPanel({ projectId, projectType, currentFile }: ChatPanelProp
   return (
     <div className="flex h-full min-h-0 flex-col bg-card">
       <ChatPanelHeader
+        conversationId={conversationId}
+        conversations={conversations}
         currentFile={currentFile}
         modelName={selectedModelName}
         onClear={clearMessages}
+        onNewConversation={createConversation}
+        onSelectConversation={switchConversation}
         projectType={projectType}
+        refreshConversations={refreshConversations}
       />
 
       <div className="flex min-h-0 min-w-0 flex-1">
@@ -68,12 +78,14 @@ export function ChatPanel({ projectId, projectType, currentFile }: ChatPanelProp
               void addToolApprovalResponse({
                 id: approvalId,
                 approved: true,
+                options: { body: { conversationId } },
               });
             }}
             onDeny={(approvalId) => {
               void addToolApprovalResponse({
                 id: approvalId,
                 approved: false,
+                options: { body: { conversationId } },
               });
             }}
           />

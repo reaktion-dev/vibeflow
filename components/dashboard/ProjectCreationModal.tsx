@@ -1,11 +1,18 @@
 'use client';
 
 import { useState } from 'react';
-import { X, Code2, Palette, Video, Workflow, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Code2, Palette, Video, Workflow, ArrowRight, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import toast from 'react-hot-toast';
 import { cn } from '@/lib/utils';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 type WorkspaceType = 'code' | 'design' | 'video' | 'flow';
 
@@ -70,8 +77,6 @@ export function ProjectCreationModal({
   const [budgetAmount, setBudgetAmount] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  if (!isOpen) return null;
-
   const selectedType = WORKSPACE_TYPES.find((t) => t.id === workspaceType);
 
   const handleCreate = async () => {
@@ -96,8 +101,8 @@ export function ProjectCreationModal({
       // Non-code projects require a generation budget
       if (workspaceType && workspaceType !== 'code' && budgetAmount.trim()) {
         const budgetDollars = parseFloat(budgetAmount);
-        if (isNaN(budgetDollars) || budgetDollars <= 0) {
-          toast.error('Budget must be a positive number');
+        if (isNaN(budgetDollars) || budgetDollars < 1) {
+          toast.error('Budget must be at least $1');
           return;
         }
         body.budgetCents = Math.round(budgetDollars * 100);
@@ -133,27 +138,24 @@ export function ProjectCreationModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
-      <div className="bg-card border border-border rounded-xl w-full max-w-lg shadow-xl">
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent className="max-w-lg! gap-0! overflow-hidden p-0!">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-border">
-          <div>
-            <h2 className="text-xl font-semibold text-foreground">
-              {step === 'type' ? 'Create a New Project' : 'Project Details'}
-            </h2>
-            {step === 'details' && selectedType && (
-              <p className="text-sm text-muted-foreground mt-1">
-                Setting up a {selectedType.label}
-              </p>
-            )}
-          </div>
-          <button
-            onClick={onClose}
-            className="text-muted-foreground hover:text-foreground transition"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+        <DialogHeader className="border-b border-border p-6">
+          <DialogTitle className="text-xl font-semibold">
+            {step === 'type' ? 'Create a New Project' : 'Project Details'}
+          </DialogTitle>
+          {step === 'details' && selectedType && (
+            <DialogDescription className="mt-1">
+              Setting up a {selectedType.label}
+            </DialogDescription>
+          )}
+        </DialogHeader>
 
         {/* Content */}
         <div className="p-6">
@@ -278,7 +280,6 @@ export function ProjectCreationModal({
                     value={budgetAmount}
                     onChange={(e) => setBudgetAmount(e.target.value)}
                     placeholder="10.00"
-                    autoFocus
                     className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && projectName.trim() && budgetAmount.trim()) {
@@ -297,7 +298,7 @@ export function ProjectCreationModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between p-6 border-t border-border bg-muted/50">
+        <div className="flex items-center justify-between border-t border-border bg-muted/50 p-6">
           <Button
             variant="ghost"
             onClick={() => {
@@ -324,7 +325,7 @@ export function ProjectCreationModal({
                 !projectName.trim() ||
                 isLoading ||
                 (workspaceType !== 'code' &&
-                  (!budgetAmount.trim() || parseFloat(budgetAmount) <= 0))
+                  (!budgetAmount.trim() || parseFloat(budgetAmount) < 1))
               }
               className="gap-2"
             >
@@ -335,7 +336,7 @@ export function ProjectCreationModal({
             </Button>
           )}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
