@@ -1,10 +1,11 @@
 'use client';
 
 import { useChat } from '@ai-sdk/react';
-import { DefaultChatTransport, lastAssistantMessageIsCompleteWithApprovalResponses } from 'ai';
+import { lastAssistantMessageIsCompleteWithApprovalResponses } from 'ai';
 import { useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 
+import { createProjectChatTransport } from '@/lib/ai/chat-transport';
 import { CODING_AGENT_MODELS } from '@/lib/ai/harness/models';
 import { CONTENT_CHAT_MODELS } from '@/lib/ai/chat-models';
 
@@ -41,17 +42,7 @@ export function useProjectAgentChat({
   const [isLoadingHistory] = useState(false);
 
   const transport = useMemo(
-    () =>
-      new DefaultChatTransport({
-        api: `/api/projects/${projectId}/chat`,
-        prepareSendMessagesRequest: ({ body }) => ({
-          body: {
-            ...(body ?? {}),
-            model: selectedModel,
-            currentFile,
-          },
-        }),
-      }),
+    () => createProjectChatTransport({ projectId, model: selectedModel, currentFile }),
     [projectId, selectedModel, currentFile]
   );
 

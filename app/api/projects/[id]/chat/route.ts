@@ -269,11 +269,9 @@ export async function POST(request: NextRequest, { params }: Params) {
                   return 'An error occurred during the chat request.';
                 },
           }),
-          init: {
-            headers: {
-              'X-Conversation-Id': convo.id,
-              'X-Project-Id': projectId,
-            },
+          headers: {
+            'X-Conversation-Id': convo.id,
+            'X-Project-Id': projectId,
           },
         })
     );
