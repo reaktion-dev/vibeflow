@@ -40,7 +40,7 @@ export function createProjectAgent(project: {
     ]
       .filter(Boolean)
       .join('\n'),
-    prepareCall: ({ options, ...settings }) => {
+    prepareCall: ({ options = {}, ...settings }) => {
       const fileHint = options.currentFile
         ? `\nCurrent file in focus: ${options.currentFile}`
         : '';

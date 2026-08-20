@@ -6,7 +6,7 @@ import { useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 
 import { CODING_AGENT_MODELS } from '@/lib/ai/harness/models';
-import { CONTENT_CHAT_MODELS } from '@/lib/ai/agents/content-agent';
+import { CONTENT_CHAT_MODELS } from '@/lib/ai/chat-models';
 
 interface UseProjectAgentChatOptions {
   projectId: string;

@@ -1,7 +1,7 @@
 import { InferAgentUIMessage, ToolLoopAgent, isStepCount } from 'ai';
 import { z } from 'zod';
 
-import { getAIModel, AVAILABLE_MODELS } from '@/lib/ai/client';
+import { getAIModel } from '@/lib/ai/client';
 import { createSharedContentTools, createDesignTools } from './content-tools';
 
 /**
@@ -24,7 +24,7 @@ const contentAgentCallOptionsSchema = z.object({
   model: z.string().optional(),
 });
 
-export const CONTENT_CHAT_MODELS = AVAILABLE_MODELS;
+export { CONTENT_CHAT_MODELS } from '@/lib/ai/chat-models';
 
 /**
  * Create a content workspace agent for a project.
@@ -50,8 +50,10 @@ export function createContentAgent(project: {
     'Be concise and practical. Always explain what you are about to do before calling paid tools.',
     'When a tool execution is not approved, explain why it was needed and offer alternatives.',
     `Current project: ${project.name}`,
-    project.description ? `Project description: ${project.description}` : null,
   ];
+  if (project.description) {
+    instructions.push(`Project description: ${project.description}`);
+  }
 
   // Add domain-specific tools per project type
   if (project.type === 'design') {
@@ -117,7 +119,7 @@ export function createContentAgent(project: {
     tools,
     toolApproval,
     instructions: instructions.filter(Boolean).join('\n'),
-    prepareCall: ({ options, ...settings }) => ({
+    prepareCall: ({ options = {}, ...settings }) => ({
       ...settings,
       model: getAIModel(options.model),
     }),

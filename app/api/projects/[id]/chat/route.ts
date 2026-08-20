@@ -248,7 +248,7 @@ export async function POST(request: NextRequest, { params }: Params) {
 
                 const result = await agent.stream({
                   messages,
-                  model: body.model,
+                  options: { model: body.model },
                 });
 
                 writer.merge(
