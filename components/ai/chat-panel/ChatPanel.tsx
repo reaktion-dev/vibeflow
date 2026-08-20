@@ -1,7 +1,10 @@
 'use client';
 
 import { useMemo } from 'react';
+import { AlertCircle, RefreshCw } from 'lucide-react';
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import { useProjectAgentChat } from '@/hooks/useProjectAgentChat';
 
 import { ChatPanelComposer } from './ChatPanelComposer';
@@ -19,7 +22,9 @@ export function ChatPanel({ projectId, projectType, currentFile }: ChatPanelProp
     addToolApprovalResponse,
     availableModels,
     clearMessages,
+    error,
     messages,
+    regenerate,
     selectedModel,
     sendTextMessage,
     setSelectedModel,
@@ -45,9 +50,10 @@ export function ChatPanel({ projectId, projectType, currentFile }: ChatPanelProp
         currentFile={currentFile}
         modelName={selectedModelName}
         onClear={clearMessages}
+        projectType={projectType}
       />
 
-      <div className="min-h-0 flex-1">
+      <div className="flex min-h-0 min-w-0 flex-1">
         {isLoadingHistory ? (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
             <div className="flex items-center gap-2">
@@ -74,6 +80,27 @@ export function ChatPanel({ projectId, projectType, currentFile }: ChatPanelProp
         )}
       </div>
 
+      {status === 'error' && error && (
+        <Alert variant="destructive" className="mx-3 mb-3 rounded-lg border-destructive/20 bg-destructive/5">
+          <AlertCircle className="size-4" />
+          <AlertDescription className="flex items-center justify-between gap-3">
+            <span className="min-w-0 flex-1">
+              {error.message || 'Something went wrong. Please try again.'}
+            </span>
+            <Button
+              className="shrink-0 gap-1.5"
+              onClick={() => void regenerate()}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              <RefreshCw className="size-3" />
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
       <ChatPanelComposer
         availableModels={availableModels}
         onStop={stop}
@@ -81,6 +108,7 @@ export function ChatPanel({ projectId, projectType, currentFile }: ChatPanelProp
         selectedModel={selectedModel}
         setSelectedModel={setSelectedModel}
         status={status}
+        projectType={projectType}
       />
     </div>
   );

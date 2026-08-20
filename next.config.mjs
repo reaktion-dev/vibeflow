@@ -26,6 +26,7 @@ const nextConfig = {
     'potrace',
     'sharp',
     '@resvg/resvg-js',
+    'pixi.js',
   ],
 }
 

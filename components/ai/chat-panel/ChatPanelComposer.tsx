@@ -38,7 +38,32 @@ interface ChatPanelComposerProps {
   selectedModel: string;
   setSelectedModel: (modelId: string) => void;
   status?: 'submitted' | 'streaming' | 'ready' | 'error';
+  projectType?: 'code' | 'design' | 'video' | 'flow';
 }
+
+const CODE_SUGGESTIONS = [
+  'Summarize the project architecture.',
+  'List the most important files for this feature.',
+  'Inspect the current file and explain what it does.',
+  'Propose a safe implementation plan before editing.',
+];
+
+const DESIGN_SUGGESTIONS = [
+  'Search for a transparent coffee cup PNG',
+  'Compose a promotional poster with a dark gradient background',
+  'Design a pricing card with three tiers',
+  'Create a social media story template',
+];
+
+const VIDEO_SUGGESTIONS = [
+  'Write a video script about our product',
+  'Generate a 30-second promotional video',
+];
+
+const FLOW_SUGGESTIONS = [
+  'Create a content pipeline',
+  'Build a research workflow',
+];
 
 const DEFAULT_SUGGESTIONS = [
   'Summarize the project architecture.',
@@ -54,9 +79,24 @@ export function ChatPanelComposer({
   selectedModel,
   setSelectedModel,
   status = 'ready',
+  projectType = 'code',
 }: ChatPanelComposerProps) {
   const [input, setInput] = useState('');
   const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
+
+  const suggestions = projectType === 'design'
+    ? DESIGN_SUGGESTIONS
+    : projectType === 'video'
+    ? VIDEO_SUGGESTIONS
+    : projectType === 'flow'
+    ? FLOW_SUGGESTIONS
+    : CODE_SUGGESTIONS;
+
+  const placeholder = projectType === 'design'
+    ? 'Ask the agent to search, compose, or generate a design…'
+    : projectType !== 'code'
+    ? `Ask the ${projectType} agent…`
+    : 'Ask the project agent to inspect, explain, or change something…';
 
   const groupedModels = useMemo(() => {
     return availableModels.reduce<Record<string, ChatModelOption[]>>((acc, model) => {
@@ -76,7 +116,7 @@ export function ChatPanelComposer({
   return (
     <div className="border-t border-border bg-background/80 backdrop-blur-sm">
       <Suggestions className="px-3 pt-3">
-        {DEFAULT_SUGGESTIONS.map((suggestion) => (
+        {suggestions.map((suggestion) => (
           <Suggestion
             key={suggestion}
             onClick={(value) => void onSubmit(value)}
@@ -98,7 +138,7 @@ export function ChatPanelComposer({
           <PromptInputBody>
             <PromptInputTextarea
               onChange={(event) => setInput(event.target.value)}
-              placeholder="Ask the project agent to inspect, explain, or change something…"
+              placeholder={placeholder}
               rows={3}
               value={input}
             />

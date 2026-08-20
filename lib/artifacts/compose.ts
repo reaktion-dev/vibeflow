@@ -107,6 +107,16 @@ export function svgDocumentToString(
 }
 
 function renderElement(element: SvgElement, resolvedImages?: Map<string, string>): string {
+  // Path elements have no `type` discriminator — check for `d` first.
+  if ('d' in element) {
+    const attrs: string[] = [`d="${element.d}"`];
+    if (element.fill !== null && element.fill !== undefined) attrs.push(`fill="${element.fill}"`);
+    if (element.stroke !== null && element.stroke !== undefined) attrs.push(`stroke="${element.stroke}"`);
+    if (element.strokeWidth !== undefined) attrs.push(`stroke-width="${element.strokeWidth}"`);
+    if (element.opacity !== undefined) attrs.push(`opacity="${element.opacity}"`);
+    return `    <path ${attrs.join(' ')} />`;
+  }
+
   switch (element.type) {
     case 'image': {
       const href =
@@ -155,19 +165,8 @@ function renderElement(element: SvgElement, resolvedImages?: Map<string, string>
       return `    <rect ${attrs.join(' ')} />`;
     }
 
-    // path type — fallback for traced paths in a union
-    default: {
-      if ('d' in element) {
-        const path = element;
-        const attrs: string[] = [`d="${path.d}"`];
-        if (path.fill !== null && path.fill !== undefined) attrs.push(`fill="${path.fill}"`);
-        if (path.stroke !== null && path.stroke !== undefined) attrs.push(`stroke="${path.stroke}"`);
-        if (path.strokeWidth !== undefined) attrs.push(`stroke-width="${path.strokeWidth}"`);
-        if (path.opacity !== undefined) attrs.push(`opacity="${path.opacity}"`);
-        return `    <path ${attrs.join(' ')} />`;
-      }
+    default:
       return '';
-    }
   }
 }
 

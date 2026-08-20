@@ -58,6 +58,7 @@
     "nextjs-toploader": "^3.9.17",
     "openai": "^6.49.0",
     "pg": "^8.22.0",
+    "pixi.js": "^8.19.0",
     "potrace": "^2.1.8",
     "react": "^19",
     "react-day-picker": "^10.0.1",

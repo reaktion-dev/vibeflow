@@ -491,7 +491,7 @@ export function createDesignTools() {
           projectId,
           width,
           height,
-          layers,
+          layers: layers as Parameters<typeof composeSvgDocument>[0]['layers'],
         });
 
         // Resolve image assetId references to base64 data URLs for rendering
