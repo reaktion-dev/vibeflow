@@ -2,13 +2,6 @@ import { tool } from 'ai';
 import { z } from 'zod';
 
 import { getToolContext } from '@/lib/ai/harness/tools/context';
-import {
-  createAsset,
-  listAssets,
-  getAsset,
-  getAssetDownloadUrl,
-} from '@/lib/artifacts/service';
-import { checkBudget, recordSpend } from '@/lib/budget/service';
 import type { AssetType } from '@/lib/artifacts/contracts';
 
 /**
@@ -44,6 +37,7 @@ export function createSharedContentTools() {
       }),
       execute: async ({ type }) => {
         const { projectId } = getToolContext();
+        const { listAssets } = await import('@/lib/artifacts/service');
         const assets = await listAssets(projectId, type as AssetType | undefined);
 
         return {
@@ -72,6 +66,7 @@ export function createSharedContentTools() {
       }),
       execute: async ({ assetId }) => {
         const { projectId } = getToolContext();
+        const { getAssetDownloadUrl } = await import('@/lib/artifacts/service');
         const url = await getAssetDownloadUrl(projectId, assetId);
         return { url };
       },
@@ -96,6 +91,7 @@ export function createSharedContentTools() {
         const { projectId } = getToolContext();
         const buffer = Buffer.from(content, 'utf-8');
 
+        const { createAsset } = await import('@/lib/artifacts/service');
         const result = await createAsset({
           projectId,
           name,
@@ -125,6 +121,7 @@ export function createSharedContentTools() {
       }),
       execute: async ({ estimatedCostCents }) => {
         const { projectId } = getToolContext();
+        const { checkBudget } = await import('@/lib/budget/service');
         const result = await checkBudget(projectId, estimatedCostCents);
         return result;
       },
@@ -377,6 +374,7 @@ export function createDesignTools() {
 
         const { buffer, mimeType } = await downloadImageFromUrl(url);
 
+        const { createAsset } = await import('@/lib/artifacts/service');
         const result = await createAsset({
           projectId,
           name,
@@ -501,6 +499,7 @@ export function createDesignTools() {
         const svgString = svgDocumentToString(document, resolvedImages);
 
         // Store as SVG asset
+        const { createAsset } = await import('@/lib/artifacts/service');
         const result = await createAsset({
           projectId,
           name: 'Composed design',

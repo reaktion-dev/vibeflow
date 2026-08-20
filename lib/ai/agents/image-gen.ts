@@ -3,7 +3,6 @@ import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 
 import { getEnv } from '@/lib/env';
 import { createAsset } from '@/lib/artifacts/service';
-import { recordSpend } from '@/lib/budget/service';
 import { getToolContext } from '@/lib/ai/harness/tools/context';
 import { OPENROUTER_IMAGE_MODELS, DEFAULT_IMAGE_MODEL } from '@/lib/ai/models';
 
@@ -167,6 +166,7 @@ export async function generateImageForProject(input: {
 
     // Record spend after successful generation
     const totalCost = getImageCostCents(model, images.length);
+    const { recordSpend } = await import('@/lib/budget/service');
     await recordSpend(projectId, totalCost);
 
     return { assetIds };
