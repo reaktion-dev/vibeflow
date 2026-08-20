@@ -5,6 +5,15 @@ import { getAIModel } from '@/lib/ai/client';
 import { createSharedContentTools, createDesignTools } from './content-tools';
 
 /**
+ * Default model for content workspace agents.
+ *
+ * Uses `openrouter/free` (auto-router) instead of a pinned model so that
+ * when one provider is overloaded (e.g. Nvidia 502s), OpenRouter routes
+ * to the next best available free model automatically.
+ */
+const DEFAULT_CONTENT_MODEL = 'openrouter/free';
+
+/**
  * Content workspace agent — a ToolLoopAgent (no sandbox) for design/video/docs/flow.
  *
  * Architecture:
@@ -113,15 +122,16 @@ export function createContentAgent(project: {
   }
 
   return new ToolLoopAgent({
-    model: getAIModel(),
+    model: getAIModel(DEFAULT_CONTENT_MODEL),
     callOptionsSchema: contentAgentCallOptionsSchema,
+    maxRetries: 3,
     stopWhen: isStepCount(20),
     tools,
     toolApproval,
     instructions: instructions.filter(Boolean).join('\n'),
     prepareCall: ({ options = {}, ...settings }) => ({
       ...settings,
-      model: getAIModel(options.model),
+      model: getAIModel(options.model || DEFAULT_CONTENT_MODEL),
     }),
   });
 }

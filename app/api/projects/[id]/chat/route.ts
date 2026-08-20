@@ -22,6 +22,31 @@ import { getProjectBudget, BudgetExceededError } from '@/lib/budget/service';
 
 export const maxDuration = 30;
 
+/**
+ * Format a streaming error for the client.
+ *
+ * Surfaces provider errors (502, 429, etc.) so users understand what went
+ * wrong instead of seeing a generic "An error occurred" message. Safe to
+ * send — these are provider-level messages, not internal stack traces.
+ */
+function formatStreamError(error: unknown): string {
+  if (error instanceof Error) {
+    // AI SDK wraps provider errors with a `cause` that has the status code
+    const cause = (error as Error & { cause?: { code?: number; message?: string } }).cause;
+    const code = cause?.code ?? (error as Error & { code?: number }).code;
+    const detail = cause?.message ?? error.message;
+
+    if (code === 502 || code === 503) {
+      return `The AI provider is temporarily unavailable (${detail}). Please try again — the request will auto-retry.`;
+    }
+    if (code === 429) {
+      return `Rate limit reached (${detail}). Please wait a moment and try again.`;
+    }
+    return detail;
+  }
+  return typeof error === 'string' ? error : 'An unexpected error occurred.';
+}
+
 interface Params {
   params: Promise<{ id: string }>;
 }
@@ -256,7 +281,7 @@ export async function POST(request: NextRequest, { params }: Params) {
                     stream: result.stream,
                     onError: (error) => {
                       console.error('[vibeflow] Content agent stream error:', error);
-                      return 'An error occurred during generation.';
+                      return formatStreamError(error);
                     },
                   })
                 );
@@ -266,7 +291,7 @@ export async function POST(request: NextRequest, { params }: Params) {
               ? getHarnessErrorMessage
               : (error) => {
                   console.error('[vibeflow] Chat stream error:', error);
-                  return 'An error occurred during the chat request.';
+                  return formatStreamError(error);
                 },
           }),
           headers: {
