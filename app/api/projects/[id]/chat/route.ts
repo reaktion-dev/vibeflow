@@ -16,6 +16,7 @@ import { syncSandboxToDb } from '@/lib/ai/harness/sandbox-sync';
 import { getHarnessErrorMessage } from '@ai-sdk/harness/agent';
 import { createProjectAgent } from '@/lib/ai/agents/project-agent';
 import { createContentAgent } from '@/lib/ai/agents/content-agent';
+import { createDesignAgent } from '@/lib/ai/agents/design';
 import { getAuthorizedProject } from '@/lib/projects/server';
 import { runWithToolContext } from '@/lib/ai/harness/tools/context';
 import { db } from '@/lib/db';
@@ -43,6 +44,14 @@ function formatStreamError(error: unknown): string {
       (error as any).lastError?.statusCode === 429
     ) {
       return 'The free tier usage rate limit was reached for this OpenCode model. Please select "Nemotron 3 Ultra" or "Free Models Router" in the model picker to continue without limits.';
+    }
+
+    if (
+      msg.includes('AI Gateway requires a valid credit card') ||
+      msg.includes('customer_verification_required') ||
+      (error as any).statusCode === 403
+    ) {
+      return 'Vercel AI Gateway requires a verified credit card on file. Please select "Free Models Router" or any OpenRouter free model in the model picker to continue for free.';
     }
 
     // AI SDK wraps provider errors with a `cause` that has the status code
@@ -342,12 +351,34 @@ export async function POST(request: NextRequest, { params }: Params) {
                     );
                   }
                 }
+              } else if (project.type === 'design') {
+                // ── Design projects: Dedicated Design Agent (Template Engine + Art Director) ──
+                const agent = createDesignAgent({
+                  id: project.id,
+                  name: project.name,
+                  description: project.description,
+                });
+
+                const result = await agent.stream({
+                  messages: modelMessages,
+                  options: { model: body.model },
+                });
+
+                writer.merge(
+                  toUIMessageStream({
+                    stream: result.stream,
+                    onError: (error) => {
+                      console.error('[vibeflow] Design agent stream error:', error);
+                      return formatStreamError(error);
+                    },
+                  })
+                );
               } else {
-                // ── Content projects: ToolLoopAgent (host-side, no sandbox) ──
+                // ── Other content projects (video/flow): ToolLoopAgent (host-side) ──
                 const agent = createContentAgent({
                   id: project.id,
                   name: project.name,
-                  type: project.type as 'design' | 'video' | 'flow',
+                  type: project.type as 'video' | 'flow',
                   description: project.description,
                 });
 

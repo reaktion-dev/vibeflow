@@ -6,6 +6,7 @@ import { getEnv } from '../env';
 import {
   DEFAULT_CODING_MODEL,
   DEFAULT_MULTIMODAL_MODEL,
+  GATEWAY_MODELS,
   type AIProvider,
 } from './models';
 
@@ -52,38 +53,19 @@ export function getAIModel(
 ): LanguageModel {
   const model = modelId || DEFAULT_CODING_MODEL;
 
-  // OpenCode Zen provider
+  // 1. OpenCode Zen provider
   if (provider === 'opencode' || model.startsWith('opencode/')) {
     const modelName = model.replace(/^opencode\//, '');
     return getOpenCodeZen().chatModel(modelName);
   }
 
-  // Explicit OpenRouter selection
-  if (
-    provider === 'openrouter' ||
-    model.includes(':free') ||
-    model.startsWith('nvidia/') ||
-    model.startsWith('poolside/') ||
-    model.startsWith('cohere/') ||
-    model.startsWith('google/gemma') ||
-    model.startsWith('dots-studio/') ||
-    model.startsWith('z-ai/') ||
-    model.startsWith('openai/gpt-oss')
-  ) {
-    return getOpenRouter().chat(model);
-  }
-
-  if (provider === 'gateway') {
+  // 2. Explicit Gateway provider or designated Gateway models ONLY
+  const isGatewayModel = GATEWAY_MODELS.some((m) => m.id === model);
+  if (provider === 'gateway' || isGatewayModel) {
     return gateway(model);
   }
 
-  // Auto-detect provider from model ID format
-  if (model.includes('/')) {
-    // Format: "provider/model" — use Vercel AI Gateway
-    return gateway(model);
-  }
-
-  // Fallback: try OpenRouter
+  // 3. Default to OpenRouter for all other models (including openrouter/free, :free, etc.)
   return getOpenRouter().chat(model);
 }
 

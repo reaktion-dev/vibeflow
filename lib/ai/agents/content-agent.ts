@@ -6,28 +6,9 @@ import { createSharedContentTools, createDesignTools } from './content-tools';
 
 /**
  * Default model for content workspace agents.
- *
- * Uses `openrouter/free` (auto-router) instead of a pinned model so that
- * when one provider is overloaded (e.g. Nvidia 502s), OpenRouter routes
- * to the next best available free model automatically.
+ * Uses `openrouter/free` (auto-router) for resilient free-tier routing.
  */
 const DEFAULT_CONTENT_MODEL = 'openrouter/free';
-
-/**
- * Content workspace agent — a ToolLoopAgent (no sandbox) for design/video/docs/flow.
- *
- * Architecture:
- * - `code` projects → HarnessAgent (OpenCode + Firecracker microVM, sandbox)
- * - `design`/`video`/`flow` projects → ToolLoopAgent (host-side, no sandbox)
- *
- * The ToolLoopAgent supports `toolApproval` (unlike subagents), so paid tools
- * like `generateImage` pause for user approval (AC-009). Non-paid complex work
- * can later delegate to subagents (which can't use approvals — only used for
- * free operations).
- *
- * The agent shares the same AsyncLocalStorage tool context as the harness
- * (projectId/userId/projectType propagate without being agent parameters).
- */
 
 const contentAgentCallOptionsSchema = z.object({
   model: z.string().optional(),
@@ -37,9 +18,6 @@ export { CONTENT_CHAT_MODELS } from '@/lib/ai/chat-models';
 
 /**
  * Create a content workspace agent for a project.
- *
- * @param project - The project (must be type design/video/flow)
- * @returns A ToolLoopAgent with domain-specific tools
  */
 export function createContentAgent(project: {
   id: string;
@@ -47,17 +25,15 @@ export function createContentAgent(project: {
   type: 'design' | 'video' | 'flow';
   description?: string | null;
 }) {
-  // Start with shared tools (listAssets, getAssetUrl, uploadTextAsset, checkBudget)
   const tools = {
     ...createSharedContentTools(),
   };
 
   let toolApproval: Record<string, 'user-approval'> = {};
   const instructions: string[] = [
-    'You are Vibeflow, an AI agent for content creation workspaces.',
-    'You help users generate, trace, and export creative artifacts.',
-    'Be concise and practical. Always explain what you are about to do before calling paid tools.',
-    'When a tool execution is not approved, explain why it was needed and offer alternatives.',
+    'You are Vibeflow, an expert AI content creation agent and visual designer.',
+    'You help users create, compose, trace, and export production-quality graphic and video artifacts.',
+    'Be concise, decisive, and proactive. Always execute the complete multi-step tool sequence to produce deliverables.',
     `Current project: ${project.name}`,
   ];
   if (project.description) {
@@ -76,48 +52,56 @@ export function createContentAgent(project: {
     };
 
     instructions.push(
-      'You are in the Design workspace. Your capabilities:',
-      '- searchImages: Search the web for reusable images — backgrounds, transparent PNGs, icons, stock photos. Always search first before generating images.',
-      '- searchWeb: Search the web for general information, references, and inspiration.',
-      '- fetchImage: Download an image from a URL and store it as a project asset. Use after searchImages.',
-      '- composeDesign: Build a composite SVG design from layers of images, shapes, and text. This is your PRIMARY design tool — layer backgrounds, vector shapes, transparent PNGs, and text to create production-quality designs.',
-      '- generateImage: Generate images from text prompts using AI. Use when you need custom imagery not available via search. Prompt for flat/graphic style.',
-      '- traceImage: Convert a raster image into editable SVG vector paths.',
-      '- exportDesign: Export a composed SVG design as SVG + raster (PNG/JPEG/WebP).',
-      '- listAssets/getAssetUrl: View and retrieve project artifacts.',
-      '- uploadTextAsset: Store SVG source, JSON, or text deliverables.',
-      '- checkBudget: Check remaining generation budget before paid operations.',
+      '## Design Workspace Tool Capabilities:',
+      '- `searchImages({ query, count })`: Search web for transparent PNGs, icons, illustrations, and backgrounds.',
+      '- `fetchImage({ url, name })`: Download an image from search results into the project Artifact Vault and get its `assetId`. ALWAYS call this before `composeDesign` so you have an `assetId` to layer.',
+      '- `composeDesign({ width, height, background, layers })`: Primary tool to composite multi-layer SVGs from images, shapes, and text.',
+      '- `generateImage({ prompt, style })`: AI image generation when custom imagery is requested.',
+      '- `traceImage({ assetId, mode })`: Auto-trace raster image into editable SVG vector paths (@visioncortex/vtracer).',
+      '- `exportDesign({ assetId, formats })`: Export composed SVG to PNG/JPEG/WebP.',
       '',
-      'Design workflow (composition-first):',
-      '1. Search for reusable images (backgrounds, transparent PNGs, icons)',
-      '2. Fetch the best images as project assets',
-      '3. Compose a multi-layer design with composeDesign (background image + vector shapes + text)',
-      '4. Export the composed design as PNG/JPEG/WebP',
-      '',
-      'Alternative workflow (vector-first):',
-      '1. Generate an AI image with generateImage',
-      '2. Trace it to SVG with traceImage',
-      '3. Export the traced SVG',
-      '',
-      'Always check budget before calling generateImage. Prefer composition over generation — it produces higher quality results and costs less.',
-      'After composing a design, suggest exporting it. The user can then tweak it in the mini-editor.'
+      '## Standard Image Composition Workflow (IMPORTANT):',
+      'When asked to create an image, banner, or featured article graphic:',
+      '1. **Search**: Call `searchImages` for transparent icons or background images.',
+      '2. **Fetch**: Pick the best search result and call `fetchImage({ url, name: "icon-name" })` to download it and get `{ assetId }`.',
+      '3. **Compose**: Call `composeDesign` with complete layer structures:',
+      '   ```json',
+      '   {',
+      '     "width": 1200,',
+      '     "height": 630,',
+      '     "background": "#0b132b",',
+      '     "layers": [',
+      '       {',
+      '         "name": "illustration",',
+      '         "elements": [',
+      '           { "type": "image", "assetId": "<FETCHED_ASSET_ID>", "x": 100, "y": 115, "width": 400, "height": 400 }',
+      '         ]',
+      '       },',
+      '       {',
+      '         "name": "typography",',
+      '         "elements": [',
+      '           { "type": "text", "text": "Article Headline", "x": 560, "y": 260, "fontSize": 48, "fontWeight": "bold", "fill": "#ffffff" },',
+      '           { "type": "text", "text": "Subheading or tagline", "x": 560, "y": 330, "fontSize": 24, "fill": "#94a3b8" }',
+      '         ]',
+      '       }',
+      '     ]',
+      '   }',
+      '   ```',
+      '4. **Inform**: Let the user know the composite SVG is ready in the canvas.'
     );
   }
 
-  // video and flow tools will be added in later phases
   if (project.type === 'video') {
     instructions.push(
       'You are in the Video workspace.',
-      'Video generation tools will be available in a later phase.',
-      'For now, you can manage artifacts with listAssets, getAssetUrl, and checkBudget.'
+      'Manage video scripts and assets using listAssets, getAssetUrl, and checkBudget.'
     );
   }
 
   if (project.type === 'flow') {
     instructions.push(
       'You are in the Flow workspace.',
-      'Pipeline execution tools will be available in a later phase.',
-      'For now, you can manage artifacts with listAssets, getAssetUrl, and checkBudget.'
+      'Manage pipeline manifests and assets using listAssets, getAssetUrl, and checkBudget.'
     );
   }
 

@@ -29,11 +29,14 @@ export function HarnessToolParts({
   onApprove,
   onDeny,
 }: HarnessToolPartsProps) {
+  const toolName =
+    part.toolName ||
+    (part as any).name ||
+    (part as any).toolInvocation?.toolName ||
+    (typeof part.type === 'string' && part.type.startsWith('tool-') ? part.type.replace(/^tool-/, '') : '') ||
+    'tool';
   const approval = part.approval;
   const isDynamic = part.type === 'dynamic-tool';
-  const toolName = part.toolName || 'unknown';
-  
-  // Handle dynamic tools (fileChange, compaction)
   if (isDynamic) {
     if (toolName === 'fileChange') {
       return (

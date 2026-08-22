@@ -424,7 +424,7 @@ export function createDesignTools() {
         layers: z
           .array(
             z.object({
-              name: z.string().describe('Layer name (e.g., "background", "content", "overlay")'),
+              name: z.string().default('layer').describe('Layer name (e.g., "background", "content", "overlay")'),
               elements: z
                 .array(
                   z.union([
@@ -467,11 +467,18 @@ export function createDesignTools() {
                     }),
                   ])
                 )
+                .default([])
                 .describe('Elements in this layer'),
               visible: z.boolean().default(true),
             })
           )
-          .min(1)
+          .default([
+            {
+              name: 'background',
+              elements: [],
+              visible: true,
+            },
+          ])
           .describe('Layers, bottom to top'),
       }),
       execute: async ({ width, height, background, layers }) => {
