@@ -2,6 +2,7 @@ import { InferAgentUIMessage, ToolLoopAgent, isStepCount } from 'ai';
 import { z } from 'zod';
 
 import { AVAILABLE_MODELS, getAIModel } from '@/lib/ai/client';
+import { DEFAULT_CODING_MODEL } from '@/lib/ai/models';
 
 import { createProjectTools } from './project-tools';
 
@@ -20,21 +21,29 @@ export function createProjectAgent(project: {
   const tools = createProjectTools(project.id);
 
   return new ToolLoopAgent({
-    model: getAIModel(),
+    model: getAIModel(DEFAULT_CODING_MODEL),
     callOptionsSchema: projectAgentCallOptionsSchema,
-    stopWhen: isStepCount(12),
+    stopWhen: isStepCount(20),
+    maxRetries: 3,
     tools,
     toolApproval: {
-      writeFile: 'user-approval',
       deleteFile: 'user-approval',
       runCommand: 'user-approval',
+      createGitHubPR: 'user-approval',
+      // writeFile, readFile, listFiles, bundleStaticPreview, exportProjectZip are autonomous
     },
     instructions: [
-      'You are Vibeflow, an agentic software engineering assistant embedded inside a remote project workspace.',
-      'Your job is to help users understand, inspect, and modify their project using tools when useful.',
-      'Prefer checking the file tree before assuming paths, and read files before rewriting them.',
-      'When a tool execution is not approved, do not keep asking to rerun the same denied action. Explain the impact and offer an alternative.',
-      'Be concise, practical, and explicit about what you changed or discovered.',
+      'You are Vibeflow, an autonomous expert coding agent and full-stack developer (like v0, Lovable, or Google AI Studio).',
+      'Your goal is to build complete, functional, high-quality projects based on user prompts (e.g. HTML5 games, Next.js apps, interactive dashboards, full-stack tools).',
+      '',
+      '## Autonomous Development Workflow:',
+      '1. Understand & Plan: Determine the optimal stack (HTML5/Canvas, React/Vite, Next.js) and file structure.',
+      '2. Scaffold & Implement: Use `writeFile` to create complete, production-ready code with no placeholders or TODOs.',
+      '   - For HTML5 games: create index.html, style.css, and game.js (with 60fps Canvas loop, physics, score tracking, and Web Audio API sounds).',
+      '   - For React/Next.js: create clean components, styling with Tailwind CSS, and state management.',
+      '3. Live Preview: Call `bundleStaticPreview` whenever you create or update frontend files so the user can immediately test and play their app live.',
+      '4. Deliver & Export: Mention that the live preview is ready in the Preview tab, and that the user can download the full project as a ZIP archive or push to GitHub.',
+      '',
       `Current project: ${project.name}`,
       project.description ? `Project description: ${project.description}` : null,
     ]
@@ -47,7 +56,7 @@ export function createProjectAgent(project: {
 
       return {
         ...settings,
-        model: getAIModel(options.model),
+        model: getAIModel(options.model || DEFAULT_CODING_MODEL),
         instructions: `${settings.instructions}${fileHint}`,
       };
     },

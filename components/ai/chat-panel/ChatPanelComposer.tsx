@@ -23,6 +23,7 @@ import {
 } from '@/components/ai-elements/prompt-input';
 import { Suggestion, Suggestions } from '@/components/ai-elements/suggestion';
 import { Badge } from '@/components/ui/badge';
+import { Sparkles } from 'lucide-react';
 
 interface ChatModelOption {
   id: string;
@@ -42,34 +43,25 @@ interface ChatPanelComposerProps {
 }
 
 const CODE_SUGGESTIONS = [
-  'Summarize the project architecture.',
-  'List the most important files for this feature.',
-  'Inspect the current file and explain what it does.',
-  'Propose a safe implementation plan before editing.',
+  'Build a responsive dashboard with dark mode',
+  'Create an HTML5 runner game with audio',
+  'Add user profile settings with avatar upload',
 ];
 
 const DESIGN_SUGGESTIONS = [
-  'Search for a transparent coffee cup PNG',
-  'Compose a promotional poster with a dark gradient background',
-  'Design a pricing card with three tiers',
-  'Create a social media story template',
+  'Design a modern geometric vector monogram',
+  'Create an icon set with 45-degree chamfer cuts',
+  'Generate a dark-mode hero illustration',
 ];
 
 const VIDEO_SUGGESTIONS = [
-  'Write a video script about our product',
-  'Generate a 30-second promotional video',
+  'Write a 15-second product demo video script',
+  'Generate audio voiceover and preview scene timing',
 ];
 
 const FLOW_SUGGESTIONS = [
-  'Create a content pipeline',
-  'Build a research workflow',
-];
-
-const DEFAULT_SUGGESTIONS = [
-  'Summarize the project architecture.',
-  'List the most important files for this feature.',
-  'Inspect the current file and explain what it does.',
-  'Propose a safe implementation plan before editing.',
+  'Build an automated data extraction pipeline',
+  'Orchestrate a multi-agent research workflow',
 ];
 
 export function ChatPanelComposer({
@@ -83,8 +75,6 @@ export function ChatPanelComposer({
 }: ChatPanelComposerProps) {
   const [input, setInput] = useState('');
   const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
-  // Suggestions are onboarding affordances — hide them once the user has
-  // sent their first message so the composer doesn't grow forever.
   const [hasSentMessage, setHasSentMessage] = useState(false);
 
   const suggestions = projectType === 'design'
@@ -96,10 +86,10 @@ export function ChatPanelComposer({
     : CODE_SUGGESTIONS;
 
   const placeholder = projectType === 'design'
-    ? 'Ask the agent to search, compose, or generate a design…'
+    ? 'Ask the design agent to generate or trace vector SVGs…'
     : projectType !== 'code'
     ? `Ask the ${projectType} agent…`
-    : 'Ask the project agent to inspect, explain, or change something…';
+    : 'Ask the coding agent to inspect, build, or debug…';
 
   const groupedModels = useMemo(() => {
     return availableModels.reduce<Record<string, ChatModelOption[]>>((acc, model) => {
@@ -125,45 +115,56 @@ export function ChatPanelComposer({
   };
 
   return (
-    <div className="border-t border-border bg-background/80 backdrop-blur-sm">
+    <div className="border-t border-border/40 bg-card/95 backdrop-blur-sm shrink-0">
+      {/* Onboarding suggestions — compact and hidden once user interacts */}
       {!hasSentMessage && (
-        <Suggestions className="px-3 pt-3">
-          {suggestions.map((suggestion) => (
-            <Suggestion
-              key={suggestion}
-              disabled={isSubmitting}
-              onClick={(value) => {
-                setHasSentMessage(true);
-                void onSubmit(value);
-              }}
-              suggestion={suggestion}
-              variant="outline"
-            />
-          ))}
-        </Suggestions>
+        <div className="px-2.5 pt-2 pb-1 overflow-x-auto">
+          <div className="flex items-center gap-1.5 min-w-max">
+            <span className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">
+              <Sparkles className="size-2.5 text-primary" />
+              Ideas:
+            </span>
+            {suggestions.slice(0, 2).map((suggestion) => (
+              <button
+                key={suggestion}
+                type="button"
+                disabled={isSubmitting}
+                onClick={() => {
+                  setHasSentMessage(true);
+                  void onSubmit(suggestion);
+                }}
+                className="text-[11px] px-2 py-0.5 rounded-md border border-border/50 bg-muted/40 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors truncate max-w-56"
+                title={suggestion}
+              >
+                {suggestion}
+              </button>
+            ))}
+          </div>
+        </div>
       )}
 
-      <div className="p-3 pt-2">
-        <PromptInput
-          onSubmit={handleSubmit}
-        >
+      {/* Main Composer Box */}
+      <div className="p-2.5">
+        <PromptInput onSubmit={handleSubmit} className="rounded-xl border border-border/60 bg-background/80 shadow-xs">
           <PromptInputBody>
             <PromptInputTextarea
               onChange={(event) => setInput(event.target.value)}
               placeholder={placeholder}
-              rows={3}
+              rows={2}
               value={input}
+              className="min-h-12 text-xs leading-relaxed resize-none"
             />
           </PromptInputBody>
-          <PromptInputFooter>
+
+          <PromptInputFooter className="px-2 py-1.5 justify-between">
             <PromptInputTools>
               <ModelSelector
                 onOpenChange={setModelSelectorOpen}
                 open={modelSelectorOpen}
               >
-                <ModelSelectorTrigger className="inline-flex h-8 max-w-48 items-center rounded-md border border-input bg-background px-3 text-sm shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground">
+                <ModelSelectorTrigger className="inline-flex h-6.5 max-w-40 items-center gap-1 rounded-md border border-input/60 bg-muted/40 px-2 text-[11px] text-muted-foreground shadow-2xs transition-colors hover:bg-accent hover:text-accent-foreground">
                   <span className="truncate">
-                    {selectedModelData?.name ?? 'Choose model'}
+                    {selectedModelData?.name.split(' ')[0] ?? 'Model'}
                   </span>
                 </ModelSelectorTrigger>
                 <ModelSelectorContent>
@@ -191,10 +192,12 @@ export function ChatPanelComposer({
                 </ModelSelectorContent>
               </ModelSelector>
             </PromptInputTools>
+
             <PromptInputSubmit
               disabled={!input.trim() && !isSubmitting}
               onStop={onStop}
               status={status}
+              className="h-6.5 px-2.5 text-xs rounded-lg"
             />
           </PromptInputFooter>
         </PromptInput>
@@ -202,3 +205,5 @@ export function ChatPanelComposer({
     </div>
   );
 }
+
+export default ChatPanelComposer;

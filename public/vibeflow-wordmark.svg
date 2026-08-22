@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 100" width="100%" height="100%" fill="none">
+  <!-- Sliced Geometric Wordmark: VIBEFLOW -->
+  <g transform="translate(10, 10)" fill="#383226">
+    <!-- V (Orange slash + dark stem) -->
+    <path d="M0 0H18L44 80H24L0 0Z" fill="#EB4D26" />
+    <path d="M44 80V0H62V80H44Z" fill="#383226" />
+    
+    <!-- I -->
+    <rect x="78" y="0" width="18" height="80" />
+    
+    <!-- B -->
+    <path d="M110 0H140C152 0 161 8 161 19C161 27 155 34 147 37C157 40 164 48 164 60C164 71 154 80 141 80H110V0ZM128 17V32H138C143 32 146 29 146 24.5C146 20 143 17 138 17H128ZM128 47V63H140C145 63 148 60 148 55C148 50 145 47 140 47H128Z" />
+
+    <!-- E -->
+    <path d="M178 0H218V17H196V32H214V48H196V63H218V80H178V0Z" />
+
+    <!-- F (with signature 45° cut) -->
+    <path d="M232 80V18L250 0H282V17H250V32H276V48H250V80H232Z" />
+
+    <!-- L -->
+    <path d="M296 0H314V63H336V80H296V0Z" />
+
+    <!-- O -->
+    <path d="M368 0C392 0 409 18 409 40C409 62 392 80 368 80C344 80 327 62 327 40C327 18 344 0 368 0ZM368 18C355 18 345 28 345 40C345 52 355 62 368 62C381 62 391 52 391 40C391 28 381 18 368 18Z" />
+
+    <!-- W -->
+    <path d="M422 0H440L451 49L462 0H480L491 49L502 0H520L501 80H483L471 31L459 80H441L422 0Z" />
+  </g>
+</svg>

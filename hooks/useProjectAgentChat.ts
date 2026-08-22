@@ -7,7 +7,7 @@ import toast from 'react-hot-toast';
 
 import { createProjectChatTransport } from '@/lib/ai/chat-transport';
 import { CODING_AGENT_MODELS } from '@/lib/ai/harness/models';
-import { CONTENT_CHAT_MODELS } from '@/lib/ai/chat-models';
+import { AVAILABLE_CHAT_MODELS } from '@/lib/ai/chat-models';
 
 interface UseProjectAgentChatOptions {
   projectId: string;
@@ -47,11 +47,11 @@ function mapHistoryToUIMessages(rows: ChatHistoryRow[]): UIMessage[] {
  * Workspace-aware chat hook.
  *
  * Routes to /api/projects/[id]/chat which selects the agent by project type:
- * - code → HarnessAgent (OpenCode + sandbox)
+ * - code → HarnessAgent (OpenCode + sandbox), falls back to ToolLoopAgent
  * - design/video/flow → ToolLoopAgent (host-side, no sandbox)
  *
- * Model lists differ: code projects use CODING_AGENT_MODELS,
- * content projects use CONTENT_CHAT_MODELS.
+ * Model lists differ: code projects use CODING_AGENT_MODELS (models compatible
+ * with the OpenCode harness), content projects use AVAILABLE_CHAT_MODELS.
  */
 export function useProjectAgentChat({
   projectId,
@@ -59,10 +59,10 @@ export function useProjectAgentChat({
   currentFile,
 }: UseProjectAgentChatOptions) {
   const isCodeProject = projectType === 'code';
-  const modelList = isCodeProject ? CODING_AGENT_MODELS : CONTENT_CHAT_MODELS;
+  const modelList = isCodeProject ? CODING_AGENT_MODELS : AVAILABLE_CHAT_MODELS;
 
   const [selectedModel, setSelectedModel] = useState(
-    modelList[0]?.id ?? 'anthropic/claude-sonnet-4-6'
+    modelList[0]?.id ?? 'opencode/deepseek-v4-flash-free'
   );
 
   // Active server conversation. `undefined` until the server confirms one
@@ -85,6 +85,17 @@ export function useProjectAgentChat({
     },
   });
 
+  // Broadcast workspace updates when the agent finishes streaming
+  const prevStatusRef = useRef(chat.status);
+  useEffect(() => {
+    if (prevStatusRef.current === 'streaming' && chat.status === 'ready') {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('vibeflow-workspace-updated'));
+      }
+    }
+    prevStatusRef.current = chat.status;
+  }, [chat.status]);
+
   // Guards against out-of-order history responses when switching quickly.
   const historyRequestRef = useRef(0);
 
@@ -106,6 +117,21 @@ export function useProjectAgentChat({
         if (json.success && Array.isArray(json.data)) {
           chat.setMessages(mapHistoryToUIMessages(json.data));
           if (json.conversationId) setConversationId(json.conversationId);
+
+          // If no previous history and initialPrompt was passed on URL, auto-trigger the agent turn
+          if (json.data.length === 0 && typeof window !== 'undefined') {
+            const urlParams = new URLSearchParams(window.location.search);
+            const initialPrompt = urlParams.get('initialPrompt');
+            if (initialPrompt && initialPrompt.trim()) {
+              // Clean up URL without reloading
+              const cleanUrl = window.location.pathname;
+              window.history.replaceState({}, '', cleanUrl);
+              void chat.sendMessage(
+                { text: initialPrompt.trim() },
+                { body: { conversationId: json.conversationId } }
+              );
+            }
+          }
         }
       } catch {
         // Best-effort: keep whatever is on screen.

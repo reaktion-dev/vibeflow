@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%" fill="none">
+  <defs>
+    <!-- Deep Midnight Obsidian Blue Gradient -->
+    <linearGradient id="vf-dark-blue-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0B132B" />
+      <stop offset="60%" stop-color="#060A17" />
+      <stop offset="100%" stop-color="#020617" />
+    </linearGradient>
+    <!-- High-Contrast Flame Vermilion Gradient -->
+    <linearGradient id="vf-orange-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF5526" />
+      <stop offset="100%" stop-color="#E63F18" />
+    </linearGradient>
+    <!-- Atmospheric Midnight Glow Shadow -->
+    <filter id="subtle-shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="10" stdDeviation="18" flood-color="#020617" flood-opacity="0.8" />
+    </filter>
+  </defs>
+
+  <!-- Background rounded midnight canvas -->
+  <rect width="512" height="512" rx="112" fill="url(#vf-dark-blue-bg)" stroke="#1E293B" stroke-width="2.5" />
+
+  <!-- Monogram Group (Centered) -->
+  <g transform="translate(68, 68) scale(1.5625)" filter="url(#subtle-shadow)">
+    <!-- Electric Vermilion Diagonal Slash (V) -->
+    <path d="M34 48H66L110 192H78L34 48Z" fill="url(#vf-orange-grad)" />
+    
+    <!-- Icy Cool Slate-White Stem & Sliced Crown (F) -->
+    <path d="M110 192V80L142 48H198V80H142V116H184V144H142V192H110Z" fill="#F1F5F9" />
+  </g>
+</svg>

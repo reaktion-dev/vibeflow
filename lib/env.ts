@@ -4,12 +4,17 @@ const envSchema = z.object({
   DAYTONA_API_KEY: z.string().min(1).optional(),
   DAYTONA_API_BASE_URL: z.string().url().optional(),
   // AI Providers
+  OPENCODE_ZEN_API_KEY: z.string().optional(),
+  OPENCODE_API_KEY: z.string().optional(),
   OPENROUTER_API_KEY: z.string().optional(),
   AI_GATEWAY_API_KEY: z.string().optional(),
   AI_GATEWAY_BASE_URL: z.string().url().optional(),
   OPENAI_API_KEY: z.string().optional(),
   ANTHROPIC_API_KEY: z.string().optional(),
   // Vercel Sandbox (for harness)
+  VERCEL_TOKEN: z.string().optional(),
+  VERCEL_TEAM_ID: z.string().optional(),
+  VERCEL_PROJECT_ID: z.string().optional(),
   VERCEL_OIDC_TOKEN: z.string().optional(),
   // Cloudflare R2 (artifact storage)
   R2_ACCOUNT_ID: z.string().optional(),
@@ -45,12 +50,17 @@ export function getEnv(): Env {
     DAYTONA_API_KEY: process.env.DAYTONA_API_KEY,
     DAYTONA_API_BASE_URL: process.env.DAYTONA_API_BASE_URL || 'https://api.daytona.io',
     // AI Providers
+    OPENCODE_ZEN_API_KEY: process.env.OPENCODE_ZEN_API_KEY,
+    OPENCODE_API_KEY: process.env.OPENCODE_API_KEY,
     OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
     AI_GATEWAY_API_KEY: process.env.AI_GATEWAY_API_KEY,
     AI_GATEWAY_BASE_URL: process.env.AI_GATEWAY_BASE_URL,
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
     ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
     // Vercel Sandbox
+    VERCEL_TOKEN: process.env.VERCEL_TOKEN,
+    VERCEL_TEAM_ID: process.env.VERCEL_TEAM_ID,
+    VERCEL_PROJECT_ID: process.env.VERCEL_PROJECT_ID,
     VERCEL_OIDC_TOKEN: process.env.VERCEL_OIDC_TOKEN,
     // Cloudflare R2
     R2_ACCOUNT_ID: process.env.R2_ACCOUNT_ID,

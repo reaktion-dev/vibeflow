@@ -14,6 +14,16 @@ export interface ChatModelOption {
 }
 
 export const AVAILABLE_CHAT_MODELS: ChatModelOption[] = [
+  // ── OpenCode Zen Models (Default Free Provider with Structured Outputs) ──
+  { id: 'opencode/deepseek-v4-flash-free', name: 'OpenCode DeepSeek Flash (Structured Output)', provider: 'OpenCode Zen', free: true },
+  { id: 'opencode/big-pickle', name: 'OpenCode Big Pickle (Fast Code)', provider: 'OpenCode Zen', free: true },
+  { id: 'opencode/mimo-v2.5-free', name: 'OpenCode MiMo 2.5', provider: 'OpenCode Zen', free: true },
+  { id: 'opencode/qwen3.6-plus-free', name: 'OpenCode Qwen 3.6 Plus', provider: 'OpenCode Zen', free: true },
+  { id: 'opencode/minimax-m3-free', name: 'OpenCode MiniMax M3', provider: 'OpenCode Zen', free: true },
+  { id: 'opencode/gpt-5.6-terra', name: 'OpenCode GPT 5.6 Terra', provider: 'OpenCode Zen', free: false },
+  { id: 'opencode/gpt-5.6-luna', name: 'OpenCode GPT 5.6 Luna', provider: 'OpenCode Zen', free: false },
+
+  // ── OpenRouter Free Models ──
   { id: 'nvidia/nemotron-3-ultra-550b-a55b:free', name: 'Nemotron 3 Ultra (550B)', provider: 'OpenRouter', free: true },
   { id: 'nvidia/nemotron-3.5-lightning:free', name: 'Nemotron 3.5 Lightning', provider: 'OpenRouter', free: true },
   { id: 'nvidia/nemotron-3-super-120b-a12b:free', name: 'Nemotron 3 Super (120B)', provider: 'OpenRouter', free: true },
@@ -27,6 +37,8 @@ export const AVAILABLE_CHAT_MODELS: ChatModelOption[] = [
   { id: 'z-ai/glm-5.2:free', name: 'Z.ai GLM 5.2', provider: 'OpenRouter', free: true },
   { id: 'openai/gpt-oss-20b:free', name: 'OpenAI GPT-OSS 20B', provider: 'OpenRouter', free: true },
   { id: 'openrouter/free', name: 'Free Models Router', provider: 'OpenRouter', free: true },
+
+  // ── Vercel AI Gateway Models ──
   { id: 'openai/gpt-4.1-nano', name: 'GPT-4.1 Nano', provider: 'Gateway', free: false },
   { id: 'openai/gpt-4.1-mini', name: 'GPT-4.1 Mini', provider: 'Gateway', free: false },
   { id: 'anthropic/claude-sonnet-4-20250514', name: 'Claude Sonnet 4', provider: 'Gateway', free: false },

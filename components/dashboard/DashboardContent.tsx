@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Bot,
@@ -16,6 +16,8 @@ import {
   Upload,
   Video,
   Workflow,
+  Images,
+  Layers,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -51,7 +53,7 @@ import { useDeleteProject } from '@/hooks/useProject';
 import { focusDashboardPrompt } from './prompt-focus';
 import { ProjectCreationModal } from './ProjectCreationModal';
 import { DashboardHero } from './DashboardHero';
-import { DashboardPromptArea } from './DashboardPromptArea';
+import { DashboardPromptArea, type WorkspaceType } from './DashboardPromptArea';
 
 type ProjectType = 'code' | 'design' | 'video' | 'flow';
 type ProjectStatus = 'active' | 'archived' | 'deleted';
@@ -71,7 +73,7 @@ interface Project {
 
 interface ProjectCardProps {
   project: Project;
-  onOpen: (id: string) => void;
+  onOpen: (id: string, tab?: string) => void;
   onRename: (project: Project) => void;
   onDelete: (project: Project) => void;
 }
@@ -142,13 +144,13 @@ const QUICK_STARTS: {
   {
     icon: LayoutTemplate,
     label: 'Start from a template',
-    description: 'React, Node, and other stacks',
+    description: 'React, Next.js, and Fullstack apps',
     action: 'modal',
   },
   {
     icon: Bot,
-    label: 'Ask an AI agent',
-    description: 'Describe it and let an agent scaffold it',
+    label: 'Multi-Agent Prompt',
+    description: 'Describe what to code, design, or render',
     action: 'prompt',
   },
 ];
@@ -176,18 +178,16 @@ function ProjectCard({ project, onOpen, onRename, onDelete }: ProjectCardProps) 
   const TypeIcon = typeMeta.icon;
   const repoHost = project.gitUrl ? getRepoHost(project.gitUrl) : null;
 
-  const open = () => onOpen(project.id);
-
   return (
     <article
       role="link"
       tabIndex={0}
       aria-label={`Open project ${project.name}`}
-      onClick={open}
+      onClick={() => onOpen(project.id)}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          open();
+          onOpen(project.id);
         }
       }}
       className="group flex cursor-pointer flex-col rounded-xl border border-border/60 bg-card/60 p-4 outline-none transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:bg-card hover:shadow-lg focus-visible:ring-2 focus-visible:ring-primary/40"
@@ -203,19 +203,20 @@ function ProjectCard({ project, onOpen, onRename, onDelete }: ProjectCardProps) 
           >
             <TypeIcon className={cn('h-4 w-4', typeMeta.color)} />
           </span>
-          <h3 className="truncate font-medium text-foreground">
+          <h3 className="truncate font-semibold text-sm text-foreground">
             {project.name}
           </h3>
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <Badge
             variant="outline"
-            className={cn('shrink-0', statusMeta.tint)}
+            className={cn('shrink-0 text-[10px]', statusMeta.tint)}
           >
             <span className={cn('h-1.5 w-1.5 rounded-full', statusMeta.dot)} />
             {statusMeta.label}
           </Badge>
-          {/* Card actions — stop propagation so the menu doesn't open the project */}
+
+          {/* Card actions */}
           <div
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => e.stopPropagation()}
@@ -234,14 +235,14 @@ function ProjectCard({ project, onOpen, onRename, onDelete }: ProjectCardProps) 
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => onRename(project)}>
-                  <Pencil />
+                  <Pencil className="mr-2 h-3.5 w-3.5" />
                   Rename
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   variant="destructive"
                   onClick={() => onDelete(project)}
                 >
-                  <Trash2 />
+                  <Trash2 className="mr-2 h-3.5 w-3.5" />
                   Delete
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -251,38 +252,88 @@ function ProjectCard({ project, onOpen, onRename, onDelete }: ProjectCardProps) 
       </div>
 
       {/* Description */}
-      <p className="mb-4 line-clamp-2 text-sm text-muted-foreground">
-        {project.description || 'No description yet.'}
+      <p className="mb-3 line-clamp-2 text-xs text-muted-foreground">
+        {project.description || 'Multi-modal workspace container.'}
       </p>
 
+      {/* Notion-style Sub-Workspaces Launch Bar */}
+      <div
+        className="mb-3 flex flex-wrap items-center gap-1 rounded-lg border border-border/40 bg-muted/20 p-1"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          onClick={() => onOpen(project.id, 'code')}
+          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-blue-500/15 hover:text-blue-500"
+          title="Open Code Workspace"
+        >
+          <Code2 className="h-3 w-3 text-blue-500" />
+          <span>Code</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onOpen(project.id, 'design')}
+          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-purple-500/15 hover:text-purple-500"
+          title="Open Vector Design Canvas"
+        >
+          <Palette className="h-3 w-3 text-purple-500" />
+          <span>Design</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onOpen(project.id, 'video')}
+          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-orange-500/15 hover:text-orange-500"
+          title="Open Video Studio"
+        >
+          <Video className="h-3 w-3 text-orange-500" />
+          <span>Video</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onOpen(project.id, 'flow')}
+          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-green-500/15 hover:text-green-500"
+          title="Open Workflow Pipelines"
+        >
+          <Workflow className="h-3 w-3 text-green-500" />
+          <span>Flow</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onOpen(project.id, 'artifacts')}
+          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-amber-500/15 hover:text-amber-500"
+          title="Open Artifact Vault"
+        >
+          <Images className="h-3 w-3 text-amber-500" />
+          <span>Vault</span>
+        </button>
+      </div>
+
       {/* Footer */}
-      <div className="mt-auto flex items-center justify-between gap-2 border-t border-border/30 pt-3">
-        <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+      <div className="mt-auto flex items-center justify-between gap-2 border-t border-border/30 pt-2.5">
+        <span className="flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
           {repoHost ? (
             <>
-              <GitBranch className="h-3.5 w-3.5 shrink-0" />
+              <GitBranch className="h-3 w-3 shrink-0" />
               <span className="truncate">{repoHost}</span>
             </>
           ) : (
-            <>
-              <TypeIcon className="h-3.5 w-3.5 shrink-0" />
-              <span>
-                {typeMeta.label} · Created{' '}
-                {formatShortDate(project.createdAt)}
-              </span>
-            </>
+            <span>Created {formatShortDate(project.createdAt)}</span>
           )}
         </span>
         <Button
           variant="ghost"
           size="sm"
-          className="shrink-0 text-xs"
+          className="h-7 shrink-0 px-2.5 text-xs font-medium text-foreground hover:bg-muted"
           onClick={(e) => {
             e.stopPropagation();
-            open();
+            onOpen(project.id);
           }}
         >
-          Open
+          Enter
         </Button>
       </div>
     </article>
@@ -309,15 +360,16 @@ export function DashboardContent() {
     const res = await fetch(url);
     if (!res.ok) return [];
     const json = await res.json();
-    // API returns { success: true, data: [...] }
     return json.data ?? [];
   });
 
   const refreshProjects = () => void mutate();
 
-  const openProject = (id: string) => router.push(`/projects/${id}`);
+  const openProject = (id: string, tab?: string) => {
+    if (tab) router.push(`/projects/${id}?tab=${tab}`);
+    else router.push(`/projects/${id}`);
+  };
 
-  // Client-side filtering driven by the sidebar (type + search query params).
   const typeParam = searchParams.get('type');
   const searchQuery = searchParams.get('q') ?? '';
   const activeType =
@@ -336,18 +388,23 @@ export function DashboardContent() {
     return true;
   });
 
-  const handlePromptSubmit = async (message: { text: string; files: any[] }) => {
+  const handlePromptSubmit = async (message: {
+    text: string;
+    files: any[];
+    type?: WorkspaceType;
+  }) => {
     if (!message.text.trim()) return;
     setIsCreating(true);
+    const chosenType = message.type ?? 'code';
 
     try {
       const res = await fetch('/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: message.text.slice(0, 100),
+          name: message.text.slice(0, 80),
           description: message.text,
-          type: 'code',
+          type: chosenType,
           template: 'blank',
         }),
       });
@@ -358,7 +415,11 @@ export function DashboardContent() {
       if (!projectId) throw new Error('Failed to create project');
 
       toast.success('Project created');
-      router.push(`/projects/${projectId}`);
+      router.push(
+        `/projects/${projectId}?tab=${chosenType}&initialPrompt=${encodeURIComponent(
+          message.text.trim()
+        )}`
+      );
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : 'Failed to create project'
@@ -367,6 +428,16 @@ export function DashboardContent() {
       setIsCreating(false);
     }
   };
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const pending = sessionStorage.getItem('pendingPrompt');
+      if (pending && pending.trim()) {
+        sessionStorage.removeItem('pendingPrompt');
+        void handlePromptSubmit({ text: pending.trim(), files: [] });
+      }
+    }
+  }, []);
 
   const handleQuickStart = (action: 'modal' | 'prompt') => {
     if (action === 'prompt') {
@@ -437,14 +508,14 @@ export function DashboardContent() {
       <section
         className={cn(
           'mx-auto flex w-full max-w-3xl flex-col items-center px-4',
-          hasProjects ? 'pt-10 pb-8 sm:pt-14' : 'pt-14 pb-10 sm:pt-20'
+          hasProjects ? 'pt-8 pb-6 sm:pt-12' : 'pt-12 pb-8 sm:pt-16'
         )}
       >
         <DashboardHero
           title={
             hasProjects
-              ? 'What are you building next?'
-              : 'What do you want to build?'
+              ? 'What are you creating next?'
+              : 'One Platform. Four Autonomous Creative Engines.'
           }
           compact={hasProjects}
           showUpgradeBanner={false}
@@ -452,11 +523,6 @@ export function DashboardContent() {
 
         <div className="flex w-full justify-center pt-4 sm:pt-6">
           <DashboardPromptArea
-            placeholder={
-              hasProjects
-                ? 'Describe the next thing you want to build'
-                : 'Build a dashboard with charts and analytics'
-            }
             onSubmit={handlePromptSubmit}
             isCreating={isCreating}
             compact={hasProjects}
@@ -494,18 +560,19 @@ export function DashboardContent() {
             <div className="mb-5 flex items-center justify-between gap-3">
               <div className="flex items-baseline gap-2">
                 <h2 className="text-base font-semibold text-foreground sm:text-lg">
-                  Your projects
+                  Your Projects
                 </h2>
                 <span className="text-xs text-muted-foreground sm:text-sm">
-                  {filteredProjects.length}
+                  ({filteredProjects.length})
                 </span>
               </div>
               <Button
                 onClick={() => setShowCreationModal(true)}
-                className="gap-1.5"
+                size="sm"
+                className="gap-1.5 shadow-2xs"
               >
                 <Plus className="h-4 w-4" />
-                New project
+                New Project
               </Button>
             </div>
 
@@ -647,3 +714,5 @@ export function DashboardContent() {
     </div>
   );
 }
+
+export default DashboardContent;

@@ -19,6 +19,8 @@ import {
 } from '@/lib/budget/service';
 import { BudgetExceededError } from '@/lib/budget/service';
 import type { AssetType } from '@/lib/artifacts/contracts';
+import { createWorkspaceExportTools } from './workspace-export-tools';
+import { createPreviewTools } from './preview-tools';
 
 /**
  * Workspace tools for the HarnessAgent.
@@ -27,22 +29,16 @@ import type { AssetType } from '@/lib/artifacts/contracts';
  * to R2 storage, the database, and provider SDKs. Each paid tool declares
  * `toolApproval: 'user-approval'` so the turn pauses until the user
  * approves/denies.
- *
- * Phase 1 ships the foundational tools:
- * - listAssets: list artifacts for the current project
- * - getAssetUrl: get a signed download URL for an asset
- * - uploadTextAsset: store a text/JSON/markdown artifact to R2 + DB
- *
- * Future phases add:
- * - generateImage (Design)
- * - traceImage (Design)
- * - exportDesign (Design)
- * - generateVideo (Video)
- * - generateDocument (Docs)
  */
 
 export function createWorkspaceTools() {
+  const exportTools = createWorkspaceExportTools();
+  const previewTools = createPreviewTools();
+
   return {
+    ...exportTools,
+    ...previewTools,
+
     listAssets: tool({
       description:
         'List all artifacts/assets in the current project. Returns id, name, type, status, and creation date.',
@@ -98,7 +94,7 @@ export function createWorkspaceTools() {
           .default('text/plain')
           .describe('MIME type (e.g., "text/markdown", "image/svg+xml", "application/json")'),
         assetType: z
-          .enum(['svg', 'document', 'pipeline'])
+          .enum(['svg', 'document', 'pipeline', 'export'])
           .default('document')
           .describe('Asset type category'),
       }),
@@ -145,10 +141,11 @@ export function createWorkspaceTools() {
 /**
  * Tool approval map for the workspace tools.
  *
- * Paid tools require user approval before execution. Free tools (listAssets,
- * getAssetUrl, checkBudget) execute without approval.
+ * Paid / external mutation tools require user approval before execution.
+ * Free tools execute without approval.
  */
 export const workspaceToolApproval = {
   uploadTextAsset: 'user-approval' as const,
-  // listAssets, getAssetUrl, checkBudget are free (no approval)
+  createGitHubPR: 'user-approval' as const,
+  // exportProjectZip, bundleStaticPreview, getSandboxPreviewUrl, listAssets, getAssetUrl, checkBudget are auto-approved
 };

@@ -20,6 +20,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import { VibeflowLogo } from "@/components/ui/vibeflow-logo";
 
 interface SidebarItem {
   icon: ReactNode;
@@ -93,8 +94,8 @@ export function LandingSidebar({ activeItem = "Home" }: LandingSidebarProps) {
       className="h-screen border-r border-border/40 bg-background text-foreground"
     >
       <SidebarHeader className="items-center gap-0 px-2 pt-3 pb-0">
-        <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 text-xs font-bold text-white shadow-lg shadow-indigo-500/25">
-          V
+        <div className="mb-3 flex items-center justify-center">
+          <VibeflowLogo variant="mark" size={26} />
         </div>
       </SidebarHeader>
 

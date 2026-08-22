@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import { getProject } from "@/app/actions/projects";
-import { ProjectWorkspace } from "@/components/ide/ProjectWorkspace";
-import { ContentWorkspace } from "@/components/workspace/ContentWorkspace";
+import { UnifiedProjectShell } from "@/components/workspace/UnifiedProjectShell";
 
 interface ProjectPageProps {
   params: Promise<{ id: string }>;
@@ -21,22 +20,11 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
     notFound();
   }
 
-  // Route by project type — code projects keep the existing IDE,
-  // content workspaces (design/video/flow) get the agent-first surface.
-  if (project.type === 'code') {
-    return (
-      <ProjectWorkspace
-        projectId={id}
-        projectName={project.name}
-      />
-    );
-  }
-
   return (
-    <ContentWorkspace
+    <UnifiedProjectShell
       projectId={id}
       projectName={project.name}
-      projectType={project.type}
+      initialType={project.type}
     />
   );
 }

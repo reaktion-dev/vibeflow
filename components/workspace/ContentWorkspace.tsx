@@ -1,11 +1,10 @@
 'use client';
 
 import { useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Images } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Images, MessageSquare, Palette, Video, Workflow } from 'lucide-react';
 import { ChatPanel } from '@/components/ai/chat-panel/ChatPanel';
 import { ArtifactGallery } from '@/components/workspace/ArtifactGallery';
 import { ArtifactPreview } from '@/components/workspace/ArtifactPreview';
-import { BudgetBar } from '@/components/workspace/BudgetBar';
 import { VectorMiniEditor } from '@/components/workspace/editor/VectorMiniEditor';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -21,18 +20,21 @@ interface ContentWorkspaceProps {
 
 const workspaceConfig: Record<
   ProjectType,
-  { label: string; accent: string }
+  { label: string; icon: typeof Palette; accent: string }
 > = {
   design: {
-    label: 'Design',
+    label: 'Vector Design',
+    icon: Palette,
     accent: 'from-purple-500 to-pink-500',
   },
   video: {
-    label: 'Video',
+    label: 'Video Studio',
+    icon: Video,
     accent: 'from-orange-500 to-red-500',
   },
   flow: {
-    label: 'Flow',
+    label: 'Flow Pipelines',
+    icon: Workflow,
     accent: 'from-green-500 to-emerald-500',
   },
 };
@@ -51,8 +53,6 @@ export function ContentWorkspace({
   const setSelectedAsset = useWorkspaceStore((s) => s.setSelectedAsset);
   const config = workspaceConfig[projectType];
 
-  // On small screens, collapse the side panels by default so the canvas keeps
-  // usable width (desktop keeps the full three-pane layout).
   useEffect(() => {
     if (window.matchMedia('(max-width: 1023.98px)').matches) {
       setShowChat(false);
@@ -73,7 +73,6 @@ export function ContentWorkspace({
     });
   };
 
-  // Determine if the selected asset should open in the mini-editor (SVG only)
   const isSvgAsset =
     selectedAsset?.type === 'svg' ||
     selectedAsset?.mimeType === 'image/svg+xml';
@@ -83,123 +82,130 @@ export function ContentWorkspace({
     : null;
 
   return (
-    <div className="relative flex h-screen w-full bg-background">
-      {/* Main content area — artifact gallery + preview/editor */}
-      <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Header */}
-        <div className="flex h-12 items-center justify-between border-b border-border/40 bg-background/80 px-4 backdrop-blur-sm">
+    <div className="relative flex h-full w-full bg-background overflow-hidden">
+      {/* Left Column: Chat Sidebar (No duplicate headers!) */}
+      {showChat && (
+        <aside className="w-80 sm:w-96 lg:w-[400px] border-r border-border bg-card flex flex-col shrink-0 min-h-0 relative z-20">
+          <ChatPanel projectId={projectId} projectType={projectType} />
+        </aside>
+      )}
+
+      {/* Chat toggle button when collapsed */}
+      {!showChat && (
+        <button
+          type="button"
+          onClick={() => setShowChat(true)}
+          className="absolute left-0 top-3 z-30 flex h-8 items-center gap-1.5 rounded-r-md border border-l-0 border-border bg-card/90 px-2.5 text-xs text-muted-foreground hover:text-foreground shadow-md backdrop-blur-sm transition-colors"
+          title="Open Agent Chat"
+        >
+          <MessageSquare className="size-3.5 text-primary" />
+          <span>Chat</span>
+          <ChevronRight className="size-3.5" />
+        </button>
+      )}
+
+      {/* Main Right Area — Clean Canvas Surface */}
+      <main className="flex flex-1 flex-col overflow-hidden min-w-0 bg-background">
+        {/* Compact Canvas Toolbar */}
+        <div className="h-10 border-b border-border/60 bg-card/70 backdrop-blur-sm px-3 flex items-center justify-between gap-2 shrink-0 z-10">
           <div className="flex items-center gap-2">
-            <div
-              className={cn(
-                'flex h-6 w-6 items-center justify-center rounded-md bg-gradient-to-br text-xs font-bold text-white',
-                config.accent
-              )}
-            >
-              V
-            </div>
-            <h1 className="text-sm font-semibold text-foreground">{projectName}</h1>
-            <span className="text-xs text-muted-foreground">/ {config.label}</span>
+            <span className="text-xs font-semibold text-foreground">
+              {config.label} Canvas
+            </span>
+            {selectedAsset && (
+              <span className="text-[11px] text-muted-foreground font-mono truncate max-w-xs">
+                / {selectedAsset.name}
+              </span>
+            )}
           </div>
-          <div className="flex items-center gap-2">
-            <BudgetBar projectId={projectId} />
+
+          <div className="flex items-center gap-1.5">
             <Button
               variant="ghost"
               size="sm"
-              className="text-xs"
-              onClick={toggleGallery}
-            >
-              {showGallery ? (
-                <ChevronLeft className="mr-1 h-4 w-4" />
-              ) : (
-                <ChevronRight className="mr-1 h-4 w-4" />
+              className={cn(
+                'h-7 px-2.5 text-xs gap-1.5 transition-colors',
+                showGallery ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'
               )}
-              Artifacts
+              onClick={toggleGallery}
+              title="Toggle Project Artifacts Drawer"
+            >
+              <Images className="size-3.5" />
+              <span>Artifacts</span>
             </Button>
           </div>
         </div>
 
         {/* Gallery + Preview/Editor */}
         <div className="relative flex flex-1 overflow-hidden">
+          {/* Artifact Gallery Panel */}
           {showGallery && (
             <div
               className={cn(
-                'flex flex-col border-r border-border bg-card',
-                // Desktop: static panel. Mobile: overlay drawer so the canvas
-                // keeps usable width on small screens.
-                'absolute inset-y-0 left-0 z-30 w-64 shadow-xl lg:static lg:z-auto lg:w-72 lg:shadow-none'
+                'flex flex-col border-r border-border bg-card shrink-0 z-20',
+                'absolute inset-y-0 left-0 w-64 shadow-xl lg:static lg:w-72 lg:shadow-none'
               )}
             >
-              <div className="flex items-center gap-2 border-b border-border p-3">
-                <Images className="h-4 w-4 text-muted-foreground" />
-                <h3 className="text-xs font-semibold text-foreground">Artifacts</h3>
+              <div className="flex items-center justify-between border-b border-border p-2.5">
+                <div className="flex items-center gap-1.5">
+                  <Images className="size-3.5 text-muted-foreground" />
+                  <h3 className="text-xs font-semibold text-foreground">Artifacts</h3>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  onClick={toggleGallery}
+                  className="size-6"
+                >
+                  <ChevronLeft className="size-3.5" />
+                </Button>
               </div>
-              <ArtifactGallery
-                projectId={projectId}
-                projectType={projectType}
-                selectedAssetId={selectedAsset?.id}
-                onSelect={handleSelectAsset}
-              />
+              <div className="flex-1 overflow-y-auto">
+                <ArtifactGallery
+                  projectId={projectId}
+                  projectType={projectType}
+                  selectedAssetId={selectedAsset?.id}
+                  onSelect={handleSelectAsset}
+                />
+              </div>
             </div>
           )}
 
-          {/* Preview panel — mini-editor for SVG assets, preview for others */}
-          {selectedAsset && assetUrl ? (
-            isSvgAsset ? (
-              <VectorMiniEditor
-                svgUrl={assetUrl}
-                assetId={selectedAsset.id}
-                projectId={projectId}
-              />
+          {/* Preview / Mini-Editor Surface */}
+          <div className="flex-1 overflow-hidden bg-muted/10 relative">
+            {selectedAsset && assetUrl ? (
+              isSvgAsset ? (
+                <VectorMiniEditor
+                  svgUrl={assetUrl}
+                  assetId={selectedAsset.id}
+                  projectId={projectId}
+                />
+              ) : (
+                <ArtifactPreview
+                  projectId={projectId}
+                  assetId={selectedAsset.id}
+                  assetName={selectedAsset.name}
+                  assetType={selectedAsset.type}
+                  assetMimeType={selectedAsset.mimeType}
+                  assetSizeBytes={selectedAsset.sizeBytes}
+                />
+              )
             ) : (
-              <ArtifactPreview
-                projectId={projectId}
-                assetId={selectedAsset.id}
-                assetName={selectedAsset.name}
-                assetType={selectedAsset.type}
-                assetMimeType={selectedAsset.mimeType}
-                assetSizeBytes={selectedAsset.sizeBytes}
-              />
-            )
-          ) : (
-            <div className="flex flex-1 items-center justify-center bg-muted/30">
-              <div className="text-center text-muted-foreground">
-                <p className="text-sm">
-                  {config.label} workspace preview
-                </p>
-                <p className="mt-1 text-xs">
-                  Generated artifacts will appear here. Ask the agent to create
-                  something to get started.
+              <div className="flex h-full flex-col items-center justify-center p-6 text-center text-muted-foreground">
+                <div className="flex size-12 items-center justify-center rounded-2xl bg-muted/40 mb-3">
+                  <Images className="size-6 text-muted-foreground/60" />
+                </div>
+                <h3 className="text-sm font-semibold text-foreground">{config.label} Workspace Canvas</h3>
+                <p className="mt-1 text-xs text-muted-foreground max-w-sm">
+                  Generated artifacts and editable vectors will render here. Instruct the agent on the left to start creating.
                 </p>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      </div>
-
-      {/* Chat sidebar */}
-      {showChat && (
-        <div
-          className={cn(
-            'flex flex-col border-l border-border bg-card',
-            // Desktop: static panel. Mobile: overlay drawer.
-            'absolute inset-y-0 right-0 z-30 w-80 shadow-xl lg:static lg:z-auto lg:w-96 lg:shadow-none'
-          )}
-        >
-          <ChatPanel projectId={projectId} projectType={projectType} />
-        </div>
-      )}
-
-      {/* Chat toggle */}
-      {!showChat && (
-        <button
-          onClick={() => setShowChat(true)}
-          className="absolute right-0 top-12 flex h-10 items-center gap-1 rounded-l-md border border-r-0 border-border bg-card px-2 text-xs text-muted-foreground hover:text-foreground"
-        >
-          <ChevronLeft className="h-4 w-4" />
-          Chat
-        </button>
-      )}
-
+      </main>
     </div>
   );
 }
+
+export default ContentWorkspace;

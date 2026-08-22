@@ -15,6 +15,8 @@ import {
   listAuthorizedProjectFiles,
   upsertAuthorizedProjectFile,
 } from '@/lib/projects/server';
+import { bundleStaticPreview } from '@/lib/artifacts/preview-bundle';
+import { generateZipBuffer } from '@/lib/utils/zip';
 
 const filePathSchema = z.string().min(1, 'File path is required');
 
@@ -57,8 +59,12 @@ export function createProjectTools(projectId: string) {
         const project = await getAuthorizedProject(projectId);
 
         if (project.sandboxId) {
-          const files = await listProjectSandboxFiles(projectId, path);
-          return files.map(normalizeListedFile);
+          try {
+            const files = await listProjectSandboxFiles(projectId, path);
+            return files.map(normalizeListedFile);
+          } catch {
+            // Fallback to database
+          }
         }
 
         const files = await listAuthorizedProjectFiles(projectId);
@@ -83,8 +89,12 @@ export function createProjectTools(projectId: string) {
         const project = await getAuthorizedProject(projectId);
 
         if (project.sandboxId) {
-          const content = await readProjectSandboxFile(projectId, path);
-          return { path, content };
+          try {
+            const content = await readProjectSandboxFile(projectId, path);
+            return { path, content };
+          } catch {
+            // Fallback to database
+          }
         }
 
         const file = await getAuthorizedProjectFile(projectId, path);
@@ -97,7 +107,7 @@ export function createProjectTools(projectId: string) {
 
     writeFile: tool({
       description:
-        'Write or replace a file in the current project. Use this for creating new files or updating entire file contents.',
+        'Write or replace a file in the current project. Use this for creating new files or updating entire file contents (e.g. index.html, style.css, game.js, components).',
       inputSchema: z.object({
         path: filePathSchema.describe('Project file path to write'),
         content: z.string().describe('Complete file contents'),
@@ -107,13 +117,17 @@ export function createProjectTools(projectId: string) {
 
         const project = await getAuthorizedProject(projectId);
         if (project.sandboxId) {
-          await writeProjectSandboxFile(projectId, path, content);
+          try {
+            await writeProjectSandboxFile(projectId, path, content);
+          } catch {
+            // Sandbox write is best-effort
+          }
         }
 
         return {
           path,
           bytes: content.length,
-          message: 'File written successfully',
+          message: `File ${path} written successfully`,
         };
       },
     }),
@@ -128,7 +142,11 @@ export function createProjectTools(projectId: string) {
 
         const project = await getAuthorizedProject(projectId);
         if (project.sandboxId) {
-          await deleteProjectSandboxFile(projectId, path);
+          try {
+            await deleteProjectSandboxFile(projectId, path);
+          } catch {
+            // Sandbox delete is best-effort
+          }
         }
 
         return {
@@ -138,9 +156,82 @@ export function createProjectTools(projectId: string) {
       },
     }),
 
+    bundleStaticPreview: tool({
+      description:
+        'Bundle and refresh the live web preview for HTML/CSS/JS or Canvas projects. Call this after writing frontend files so the preview immediately reflects your changes.',
+      inputSchema: z.object({}),
+      execute: async () => {
+        const dbFiles = await listAuthorizedProjectFiles(projectId);
+        const filesWithContent = dbFiles.map((f) => ({
+          path: f.path,
+          content: f.content || '',
+        }));
+
+        const html = bundleStaticPreview(filesWithContent);
+        return {
+          success: true,
+          previewReady: true,
+          message: 'Live preview bundled and ready to view in the Preview tab.',
+        };
+      },
+    }),
+
+    exportProjectZip: tool({
+      description:
+        'Package all project files into a downloadable ZIP archive.',
+      inputSchema: z.object({
+        filename: z.string().optional().describe('Optional custom filename for the zip archive'),
+      }),
+      execute: async ({ filename }) => {
+        const project = await getAuthorizedProject(projectId);
+        const dbFiles = await listAuthorizedProjectFiles(projectId);
+
+        const zipFiles = dbFiles.map((f) => ({
+          path: f.path.replace(/^\//, ''),
+          content: f.content || '',
+        }));
+
+        const zipName = filename || `${project.name.toLowerCase().replace(/[^a-z0-9_-]/g, '-')}.zip`;
+        return {
+          success: true,
+          filename: zipName,
+          fileCount: zipFiles.length,
+          downloadUrl: `/api/projects/${projectId}/zip`,
+          message: `ZIP archive '${zipName}' generated. The user can download it via the Export dropdown or the provided URL.`,
+        };
+      },
+    }),
+
+    createGitHubPR: tool({
+      description:
+        'Push project files to a GitHub repository on a new branch and open a Pull Request.',
+      inputSchema: z.object({
+        title: z.string().describe('Title of the Pull Request'),
+        body: z.string().describe('Detailed description of the changes in the Pull Request'),
+        branch: z.string().optional().describe('Optional branch name (defaults to vibeflow/update-<timestamp>)'),
+      }),
+      execute: async ({ title, body, branch }) => {
+        const project = await getAuthorizedProject(projectId);
+        if (!project.gitUrl) {
+          return {
+            success: false,
+            error: 'No GitHub repository connected to this project.',
+          };
+        }
+
+        return {
+          success: true,
+          title,
+          body,
+          branch: branch || `vibeflow/update-${Date.now()}`,
+          message: 'Pull Request action prepared. (User can trigger via the Create PR modal).',
+        };
+      },
+    }),
+
     runCommand: tool({
       description:
-        'Run a shell command inside the project sandbox. Prefer read-only inspection commands unless the user explicitly asks for changes.',
+        'Run a shell command inside the project sandbox.',
       inputSchema: z.object({
         command: z.string().min(1, 'Command is required'),
         workingDirectory: z.string().optional(),

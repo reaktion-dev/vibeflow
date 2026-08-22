@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%" fill="none">
+  <defs>
+    <linearGradient id="vf-light-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="100%" stop-color="#F3F2EE" />
+    </linearGradient>
+    <linearGradient id="vf-orange-grad-light" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F24E23" />
+      <stop offset="100%" stop-color="#DE3811" />
+    </linearGradient>
+    <filter id="subtle-shadow-light" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="6" stdDeviation="12" flood-color="#383226" flood-opacity="0.08" />
+    </filter>
+  </defs>
+
+  <!-- Background rounded canvas -->
+  <rect width="512" height="512" rx="112" fill="url(#vf-light-bg)" stroke="#E5E2D9" stroke-width="2" />
+
+  <!-- Monogram Group (Centered) -->
+  <g transform="translate(68, 68) scale(1.5625)" filter="url(#subtle-shadow-light)">
+    <!-- Orange Diagonal Slash (V) -->
+    <path d="M34 48H66L110 192H78L34 48Z" fill="url(#vf-orange-grad-light)" />
+    
+    <!-- Espresso Stem & Sliced Crown (F) -->
+    <path d="M110 192V80L142 48H198V80H142V116H184V144H142V192H110Z" fill="#383226" />
+  </g>
+</svg>

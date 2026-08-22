@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import useSWR from 'swr';
 import { FileNode, FileContent } from '@/lib/types';
 import axios from 'axios';
@@ -21,6 +22,14 @@ export function useFileTree(projectId?: string, dirPath?: string) {
       : null,
     fetcher
   );
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      void mutate();
+    };
+    window.addEventListener('vibeflow-workspace-updated', handleUpdate);
+    return () => window.removeEventListener('vibeflow-workspace-updated', handleUpdate);
+  }, [mutate]);
 
   return {
     files: data || [],

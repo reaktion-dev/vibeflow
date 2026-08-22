@@ -25,13 +25,23 @@ export default function LandingPage() {
         }),
       });
 
-      const json = await res.json();
+      const json = await res.json().catch(() => null);
+
+      if (res.status === 401 || json?.error?.includes('Unauthorized')) {
+        // Store prompt in sessionStorage and redirect to sign-in
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('pendingPrompt', message.text.trim());
+        }
+        toast('Please sign in to generate your project', { icon: '✨' });
+        router.push('/sign-in?callbackUrl=/dashboard');
+        return;
+      }
 
       if (!res.ok || !json?.success) {
         throw new Error(json?.error || "Failed to create project");
       }
 
-      router.push(`/projects/${json.data.id}`);
+      router.push(`/projects/${json.data.id}?initialPrompt=${encodeURIComponent(message.text.trim())}`);
     } catch (error) {
       console.error("Error creating project:", error);
       toast.error(

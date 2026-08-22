@@ -2,6 +2,7 @@
 
 import { Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { VibeflowLogo } from '@/components/ui/vibeflow-logo';
 
 interface DashboardHeroProps {
   title?: string;
@@ -23,14 +24,11 @@ export function DashboardHero({
     <div className="flex flex-col items-center gap-4 sm:gap-5">
       {/* Brand mark + wordmark */}
       <div className="flex items-center gap-3">
-        <div
-          className={cn(
-            'flex items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 font-bold text-white shadow-lg shadow-indigo-500/25',
-            compact ? 'h-9 w-9 rounded-xl text-base' : 'h-12 w-12 text-xl'
-          )}
-        >
-          V
-        </div>
+        <VibeflowLogo
+          variant="mark"
+          size={compact ? 36 : 48}
+          className="shrink-0"
+        />
         <h1
           className={cn(
             'font-bold tracking-tight text-foreground',

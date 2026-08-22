@@ -1,4 +1,4 @@
-import { DefaultChatTransport } from 'ai';
+import { DefaultChatTransport, type UIMessage } from 'ai';
 
 /**
  * Creates the chat transport used by the project chat hook.
@@ -31,4 +31,19 @@ export function createProjectChatTransport({
       },
     }),
   });
+}
+
+/**
+ * Extract the latest user prompt text from the messages array.
+ * HarnessAgent maintains its own conversation context — we only pass the
+ * latest user message as `prompt`, not the full history.
+ */
+export function extractLatestUserPrompt(messages: UIMessage[]): string {
+  const lastUserMsg = messages.filter((m) => m.role === 'user').pop();
+  if (!lastUserMsg) return '';
+
+  const textParts = (lastUserMsg.parts ?? []).filter(
+    (p): p is { type: 'text'; text: string } => p.type === 'text'
+  );
+  return textParts.map((p) => p.text).join('\n').trim();
 }

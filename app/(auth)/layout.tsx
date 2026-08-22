@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { VibeflowLogo } from "@/components/ui/vibeflow-logo";
 
 export const metadata: Metadata = {
   title: "Auth — Vibeflow",
@@ -65,28 +66,13 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
       {/* Brand mark */}
       <div style={{ position: "relative", zIndex: 1, marginBottom: "2rem", textAlign: "center" }}>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }}>
-          <div
-            style={{
-              width: "2rem",
-              height: "2rem",
-              borderRadius: "0.5rem",
-              background: "linear-gradient(135deg, var(--primary) 0%, oklch(0.6770 0.1511 36.8636) 100%)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              boxShadow: "0 0 20px oklch(0.5699 0.1271 238.3563 / 0.4)",
-            }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-            </svg>
-          </div>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: "0.75rem" }}>
+          <VibeflowLogo variant="mark" size={32} style={{ flexShrink: 0 }} />
           <span
             style={{
               fontFamily: "var(--font-serif)",
               fontWeight: 700,
-              fontSize: "1.25rem",
+              fontSize: "1.35rem",
               color: "var(--foreground)",
               letterSpacing: "-0.02em",
             }}

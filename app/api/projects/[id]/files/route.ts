@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getProject, getProjectFiles, upsertFile, deleteFile } from '@/app/actions/projects'
+import { getProject, getProjectFiles, getFile, upsertFile, deleteFile } from '@/app/actions/projects'
 import { listSandboxFiles, readSandboxFile, writeSandboxFile, deleteSandboxFile } from '@/app/actions/daytona'
 import { z } from 'zod'
 
@@ -43,34 +43,43 @@ export async function GET(request: NextRequest, { params }: Params) {
     const path = searchParams.get('path') || '/'
 
     if (action === 'read') {
-      // Read file from sandbox
-      if (!project.sandboxId) {
-        return NextResponse.json(
-          { success: false, error: 'Sandbox not provisioned' },
-          { status: 400 }
-        )
+      // Read file from sandbox if present, otherwise database
+      if (project.sandboxId) {
+        try {
+          const content = await readSandboxFile(id, path)
+          return NextResponse.json({
+            success: true,
+            data: { path, content },
+          })
+        } catch {
+          // Fallback to database
+        }
       }
 
-      const content = await readSandboxFile(id, path)
+      const file = await getFile(id, path).catch(() => null)
       return NextResponse.json({
         success: true,
-        data: { path, content },
+        data: { path, content: file?.content || '' },
       })
     } else {
       // List from sandbox if available, otherwise database
       if (project.sandboxId) {
-        const files = await listSandboxFiles(id, path)
-        return NextResponse.json({
-          success: true,
-          data: files,
-        })
-      } else {
-        const dbFiles = await getProjectFiles(id)
-        return NextResponse.json({
-          success: true,
-          data: dbFiles,
-        })
+        try {
+          const files = await listSandboxFiles(id, path)
+          return NextResponse.json({
+            success: true,
+            data: files,
+          })
+        } catch {
+          // Fallback to database
+        }
       }
+
+      const dbFiles = await getProjectFiles(id)
+      return NextResponse.json({
+        success: true,
+        data: dbFiles,
+      })
     }
   } catch (error: any) {
     console.error('[v0] Files GET error:', error.message)
@@ -91,8 +100,7 @@ export async function GET(request: NextRequest, { params }: Params) {
 export async function POST(request: NextRequest, { params }: Params) {
   try {
     const { id } = await params
-    const projectId = parseInt(id, 10)
-    if (isNaN(projectId)) {
+    if (!id) {
       return NextResponse.json(
         { success: false, error: 'Invalid project ID' },
         { status: 400 }
@@ -102,12 +110,17 @@ export async function POST(request: NextRequest, { params }: Params) {
     const body = await request.json()
     const validated = writeFileSchema.parse(body)
 
-    // Write to both sandbox and database
+    // Write to database
     await upsertFile(id, validated)
 
+    // Write to sandbox if available
     const project = await getProject(id)
     if (project.sandboxId) {
-      await writeSandboxFile(id, validated.path, validated.content)
+      try {
+        await writeSandboxFile(id, validated.path, validated.content)
+      } catch (e) {
+        console.warn('[v0] Sandbox file write failed:', e)
+      }
     }
 
     return NextResponse.json(
@@ -147,8 +160,7 @@ export async function POST(request: NextRequest, { params }: Params) {
 export async function DELETE(request: NextRequest, { params }: Params) {
   try {
     const { id } = await params
-    const projectId = parseInt(id, 10)
-    if (isNaN(projectId)) {
+    if (!id) {
       return NextResponse.json(
         { success: false, error: 'Invalid project ID' },
         { status: 400 }
@@ -164,7 +176,11 @@ export async function DELETE(request: NextRequest, { params }: Params) {
     // Delete from sandbox if available
     const project = await getProject(id)
     if (project.sandboxId) {
-      await deleteSandboxFile(id, validated.path)
+      try {
+        await deleteSandboxFile(id, validated.path)
+      } catch (e) {
+        console.warn('[v0] Sandbox file delete failed:', e)
+      }
     }
 
     return NextResponse.json({

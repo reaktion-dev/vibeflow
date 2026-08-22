@@ -10,17 +10,21 @@ import { z } from 'zod';
 import { nanoid } from 'nanoid';
 import { eq, and, desc } from 'drizzle-orm';
 
-import { codingAgent } from '@/lib/ai/harness/opencode-agent';
+import { getCodingAgent } from '@/lib/ai/harness/opencode-agent';
 import { resumeOrCreateSession, detachAndPersist } from '@/lib/ai/harness/session-store';
+import { syncSandboxToDb } from '@/lib/ai/harness/sandbox-sync';
 import { getHarnessErrorMessage } from '@ai-sdk/harness/agent';
+import { createProjectAgent } from '@/lib/ai/agents/project-agent';
 import { createContentAgent } from '@/lib/ai/agents/content-agent';
 import { getAuthorizedProject } from '@/lib/projects/server';
 import { runWithToolContext } from '@/lib/ai/harness/tools/context';
 import { db } from '@/lib/db';
 import { conversations, chatMessages } from '@/lib/db/schema';
 import { getProjectBudget, BudgetExceededError } from '@/lib/budget/service';
+import { extractLatestUserPrompt } from '@/lib/ai/chat-transport';
 
-export const maxDuration = 30;
+// Allow sufficient time for sandbox boot + OpenCode bootstrap + agent turn
+export const maxDuration = 120;
 
 /**
  * Format a streaming error for the client.
@@ -31,6 +35,16 @@ export const maxDuration = 30;
  */
 function formatStreamError(error: unknown): string {
   if (error instanceof Error) {
+    const msg = error.message;
+    if (
+      msg.includes('FreeUsageLimitError') ||
+      msg.includes('Rate limit exceeded') ||
+      (error as any).statusCode === 429 ||
+      (error as any).lastError?.statusCode === 429
+    ) {
+      return 'The free tier usage rate limit was reached for this OpenCode model. Please select "Nemotron 3 Ultra" or "Free Models Router" in the model picker to continue without limits.';
+    }
+
     // AI SDK wraps provider errors with a `cause` that has the status code
     const cause = (error as Error & { cause?: { code?: number; message?: string } }).cause;
     const code = cause?.code ?? (error as Error & { code?: number }).code;
@@ -40,7 +54,7 @@ function formatStreamError(error: unknown): string {
       return `The AI provider is temporarily unavailable (${detail}). Please try again — the request will auto-retry.`;
     }
     if (code === 429) {
-      return `Rate limit reached (${detail}). Please wait a moment and try again.`;
+      return `Rate limit reached (${detail}). Please select "Nemotron 3 Ultra" or "Free Models Router" in the model selector.`;
     }
     return detail;
   }
@@ -196,12 +210,15 @@ export async function GET(request: NextRequest, { params }: Params) {
  * POST /api/projects/[id]/chat
  *
  * Routes to the correct agent based on project type:
- * - `code` → HarnessAgent (OpenCode + Firecracker sandbox, session resume/detach)
- * - `design`/`video`/`flow` → ToolLoopAgent (host-side, no sandbox)
  *
- * Both agent types stream UIMessage parts via toUIMessageStream and support
- * toolApproval for paid tools. The content agent uses AsyncLocalStorage
- * (runWithToolContext) for projectId/userId/projectType propagation.
+ * - `code` → **HarnessAgent** (OpenCode + Firecracker sandbox)
+ *   Uses `prompt` (latest user text only) — the harness maintains its own
+ *   conversation context and workspace inside the sandbox. Session is
+ *   detached (parked warm) after each turn for fast resume.
+ *   Falls back to ToolLoopAgent if the sandbox fails to start.
+ *
+ * - `design`/`video`/`flow` → **ToolLoopAgent** (host-side, no sandbox)
+ *   Uses `messages` (full history) — standard stateless chat pattern.
  */
 export async function POST(request: NextRequest, { params }: Params) {
   try {
@@ -212,27 +229,21 @@ export async function POST(request: NextRequest, { params }: Params) {
     // Ensure conversation exists
     const convo = await ensureConversation(projectId, body.conversationId);
 
-    // Persist the latest user message
-    const lastUserMsg = body.messages.filter((m) => m.role === 'user').pop();
-    if (lastUserMsg) {
-      const textParts = (lastUserMsg.parts ?? []).filter(
-        (p): p is { type: 'text'; text: string } => p.type === 'text'
-      );
-      const content = textParts.map((p) => p.text).join('\n');
-      if (content.trim()) {
-        await persistUserMessage(convo.id, content);
-      }
+    // Extract and persist the latest user message
+    const latestPrompt = extractLatestUserPrompt(body.messages);
+    if (latestPrompt) {
+      await persistUserMessage(convo.id, latestPrompt);
     }
 
-    // Convert UI messages to model messages
-    const messages = await convertToModelMessages(body.messages);
+    // Convert UI messages to model messages (used by ToolLoopAgent and content agent)
+    const modelMessages = await convertToModelMessages(body.messages);
 
     // Route to the correct agent based on project type
     const isCodeProject = project.type === 'code';
 
     // Wrap in runWithToolContext so host-executed workspace tools
-    // (listAssets, getAssetUrl, generateImage, traceImage, checkBudget)
-    // have access to projectId/userId/projectType without being agent parameters.
+    // (listAssets, getAssetUrl, bundleStaticPreview, checkBudget)
+    // have access to projectId/userId/projectType.
     return runWithToolContext(
       { projectId, userId: project.userId, projectType: project.type },
       () =>
@@ -240,27 +251,96 @@ export async function POST(request: NextRequest, { params }: Params) {
           stream: createUIMessageStream({
             execute: async ({ writer }) => {
               if (isCodeProject) {
-                // ── Code projects: HarnessAgent (sandbox + session resume) ──
-                const session = await resumeOrCreateSession({
-                  agent: codingAgent,
-                  projectId,
-                });
-
+                // ── Code projects: HarnessAgent (OpenCode + sandbox) ──
+                // Try HarnessAgent first; fall back to ToolLoopAgent on failure.
                 try {
-                  const result = await codingAgent.stream({ session, messages });
+                  const agent = getCodingAgent(body.model);
+                  const session = await resumeOrCreateSession({
+                    agent,
+                    projectId,
+                  });
 
-                  writer.merge(
-                    toUIMessageStream({
-                      stream: result.stream,
-                      onError: getHarnessErrorMessage,
-                      onEnd: async () => {
-                        await detachAndPersist({ projectId, session });
-                      },
-                    })
+                  try {
+                    // HarnessAgent uses `prompt` (latest user text), NOT `messages`.
+                    // The harness maintains native conversation context inside the sandbox.
+                    const result = await agent.stream({
+                      session,
+                      prompt: latestPrompt,
+                    });
+
+                    writer.merge(
+                      toUIMessageStream({
+                        stream: result.stream,
+                        onError: getHarnessErrorMessage,
+                        onFinish: async () => {
+                          // Sync files from sandbox → DB so Live Preview and Code Editor update
+                          await syncSandboxToDb({ session, projectId });
+                          // Park sandbox warm for fast resume on the next turn
+                          await detachAndPersist({ projectId, session });
+                        },
+                      })
+                    );
+                  } catch (turnError) {
+                    // Turn failed — park the session (don't destroy, preserve sandbox for retry)
+                    try {
+                      await detachAndPersist({ projectId, session });
+                    } catch {
+                      // Best-effort detach
+                    }
+                    throw turnError;
+                  }
+                } catch (harnessError) {
+                  // HarnessAgent failed (sandbox boot, auth, etc.) — fall back to ToolLoopAgent
+                  console.warn(
+                    '[vibeflow] HarnessAgent failed, falling back to ToolLoopAgent:',
+                    harnessError instanceof Error ? harnessError.message : harnessError
                   );
-                } catch (error) {
-                  await session.destroy();
-                  throw error;
+
+                  const fallbackAgent = createProjectAgent({
+                    id: project.id,
+                    name: project.name,
+                    description: project.description,
+                  });
+
+                  try {
+                    const result = await fallbackAgent.stream({
+                      messages: modelMessages,
+                      options: { model: body.model, currentFile: body.currentFile },
+                    });
+
+                    writer.merge(
+                      toUIMessageStream({
+                        stream: result.stream,
+                        onError: (error) => {
+                          console.error('[vibeflow] Fallback agent stream error:', error);
+                          return formatStreamError(error);
+                        },
+                      })
+                    );
+                  } catch (fallbackInitError) {
+                    console.warn(
+                      '[vibeflow] Fallback agent stream init failed, failing over to OpenRouter free model:',
+                      fallbackInitError
+                    );
+
+                    const retryResult = await fallbackAgent.stream({
+                      messages: modelMessages,
+                      options: {
+                        model: 'nvidia/nemotron-3-ultra-550b-a55b:free',
+                        currentFile: body.currentFile,
+                      },
+                    });
+
+                    writer.merge(
+                      toUIMessageStream({
+                        stream: retryResult.stream,
+                        onError: (error) => {
+                          console.error('[vibeflow] Fallback retry stream error:', error);
+                          return formatStreamError(error);
+                        },
+                      })
+                    );
+                  }
                 }
               } else {
                 // ── Content projects: ToolLoopAgent (host-side, no sandbox) ──
@@ -272,7 +352,7 @@ export async function POST(request: NextRequest, { params }: Params) {
                 });
 
                 const result = await agent.stream({
-                  messages,
+                  messages: modelMessages,
                   options: { model: body.model },
                 });
 
@@ -287,12 +367,10 @@ export async function POST(request: NextRequest, { params }: Params) {
                 );
               }
             },
-            onError: isCodeProject
-              ? getHarnessErrorMessage
-              : (error) => {
-                  console.error('[vibeflow] Chat stream error:', error);
-                  return formatStreamError(error);
-                },
+            onError: (error) => {
+              console.error('[vibeflow] Chat stream error:', error);
+              return formatStreamError(error);
+            },
           }),
           headers: {
             'X-Conversation-Id': convo.id,

@@ -1,6 +1,7 @@
 "use client";
 
 import { Sparkles } from "lucide-react";
+import { VibeflowLogo } from "@/components/ui/vibeflow-logo";
 
 interface LandingHeroProps {
   title?: string;
@@ -14,10 +15,8 @@ export function LandingHero({
   return (
     <div className="flex flex-col items-center gap-6 pt-24 pb-4">
       {/* Logo / Brand Mark */}
-      <div className="flex items-center gap-3">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 text-xl font-bold text-white shadow-lg shadow-indigo-500/25">
-          V
-        </div>
+      <div className="flex items-center gap-3.5">
+        <VibeflowLogo variant="mark" size={44} className="shrink-0" />
         <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
           Vibeflow
         </h1>

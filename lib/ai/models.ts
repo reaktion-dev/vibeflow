@@ -22,6 +22,81 @@ export interface AIModelConfig {
   description: string;
 }
 
+// ─── OpenCode Zen Models (Native OpenCode Ecosystem) ──────────────────────────
+
+export const OPENCODE_ZEN_MODELS: AIModelConfig[] = [
+  {
+    id: 'opencode/big-pickle',
+    name: 'OpenCode Big Pickle',
+    provider: 'opencode',
+    contextLength: 262_144,
+    supportsTools: true,
+    supportsImages: false,
+    category: 'coding',
+    description: 'OpenCode specialized fast coding model',
+  },
+  {
+    id: 'opencode/mimo-v2.5-free',
+    name: 'OpenCode MiMo 2.5',
+    provider: 'opencode',
+    contextLength: 262_144,
+    supportsTools: true,
+    supportsImages: false,
+    category: 'coding',
+    description: 'OpenCode MiMo coding model, free tier',
+  },
+  {
+    id: 'opencode/deepseek-v4-flash-free',
+    name: 'OpenCode DeepSeek Flash',
+    provider: 'opencode',
+    contextLength: 131_072,
+    supportsTools: true,
+    supportsImages: false,
+    category: 'coding',
+    description: 'DeepSeek Flash via OpenCode Zen',
+  },
+  {
+    id: 'opencode/qwen3.6-plus-free',
+    name: 'OpenCode Qwen 3.6 Plus',
+    provider: 'opencode',
+    contextLength: 131_072,
+    supportsTools: true,
+    supportsImages: false,
+    category: 'coding',
+    description: 'Qwen 3.6 Plus via OpenCode Zen',
+  },
+  {
+    id: 'opencode/minimax-m3-free',
+    name: 'OpenCode MiniMax M3',
+    provider: 'opencode',
+    contextLength: 131_072,
+    supportsTools: true,
+    supportsImages: false,
+    category: 'coding',
+    description: 'MiniMax M3 coding model, free tier',
+  },
+  {
+    id: 'opencode/gpt-5.6-terra',
+    name: 'OpenCode GPT 5.6 Terra',
+    provider: 'opencode',
+    contextLength: 512_000,
+    supportsTools: true,
+    supportsImages: false,
+    category: 'coding',
+    description: 'High performance frontier model on OpenCode Zen',
+  },
+  {
+    id: 'opencode/gpt-5.6-luna',
+    name: 'OpenCode GPT 5.6 Luna',
+    provider: 'opencode',
+    contextLength: 512_000,
+    supportsTools: true,
+    supportsImages: false,
+    category: 'coding',
+    description: 'Balanced coding and reasoning model on OpenCode Zen',
+  },
+];
+
 // ─── OpenRouter Free Models (with tool support) ────────────────────────────────
 
 export const OPENROUTER_FREE_MODELS: AIModelConfig[] = [
@@ -259,8 +334,8 @@ export const GATEWAY_MODELS: AIModelConfig[] = [
 
 // ─── Default Models ────────────────────────────────────────────────────────────
 
-/** Default coding agent model (free) */
-export const DEFAULT_CODING_MODEL = 'nvidia/nemotron-3-ultra-550b-a55b:free';
+/** Default coding agent model (free OpenCode Zen DeepSeek with structured outputs) */
+export const DEFAULT_CODING_MODEL = 'opencode/deepseek-v4-flash-free';
 
 /** Default multimodal model (free) */
 export const DEFAULT_MULTIMODAL_MODEL = 'google/gemma-4-31b-it:free';
@@ -269,13 +344,14 @@ export const DEFAULT_MULTIMODAL_MODEL = 'google/gemma-4-31b-it:free';
 export const DEFAULT_IMAGE_MODEL = 'bytedance-seed/seedream-5-0-lite';
 
 /** Default general purpose model (free) */
-export const DEFAULT_GENERAL_MODEL = 'openrouter/free';
+export const DEFAULT_GENERAL_MODEL = 'opencode/deepseek-v4-flash-free';
 
 // ─── Helper Functions ──────────────────────────────────────────────────────────
 
 /** Get all available models */
 export function getAllModels(): AIModelConfig[] {
   return [
+    ...OPENCODE_ZEN_MODELS,
     ...OPENROUTER_FREE_MODELS,
     ...OPENROUTER_IMAGE_MODELS,
     ...GATEWAY_MODELS,
