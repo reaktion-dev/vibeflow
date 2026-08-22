@@ -55,19 +55,21 @@ export function createDesignAgentTools() {
           name: assetName,
           type: 'svg',
           mimeType: 'image/svg+xml',
-          data: Buffer.from(svgString, 'utf-8'),
+          body: Buffer.from(svgString, 'utf-8'),
           metadata: {
-            templateId: slotData.templateId,
-            theme: slotData.theme,
-            headline: slotData.headline,
-            badge: slotData.badgeText,
-            source: 'template-solver',
+            status: 'ready',
+            source: {
+              provider: 'template-solver',
+              model: slotData.templateId,
+              prompt: slotData.headline || slotData.templateId,
+              params: slotData as any,
+            },
           },
         });
 
         return {
           assetId: asset.id,
-          name: asset.name,
+          name: assetName,
           templateId: slotData.templateId,
           svgUrl: `/api/projects/${projectId}/assets/${asset.id}`,
           message: `Successfully composed "${assetName}" using template "${slotData.templateId}". It is now saved in the Artifact Vault and rendered in the canvas editor.`,
@@ -85,17 +87,17 @@ export function createDesignAgentTools() {
         count: z.number().int().min(1).max(10).default(8).describe('Number of results (1-10)'),
       }),
       execute: async ({ query, count }) => {
-        const { searchImages: performSearch } = await import('@/lib/artifacts/image-search');
-        const results = await performSearch(query, count);
+        const { searchImages } = await import('@/lib/ai/agents/web-search');
+        const { results, provider } = await searchImages(query, { count });
         return {
           query,
-          provider: results.provider,
-          results: results.images.map((img) => ({
+          provider,
+          results: results.map((img) => ({
             title: img.title,
             imageUrl: img.imageUrl,
             source: img.source,
           })),
-          message: `Found ${results.images.length} images. Call fetchImage({ url, name }) to download any of these into the project vault.`,
+          message: `Found ${results.length} images. Call fetchImage({ url, name }) to download any of these into the project vault.`,
         };
       },
     }),
@@ -109,15 +111,33 @@ export function createDesignAgentTools() {
       }),
       execute: async ({ url, name }) => {
         const { projectId } = getToolContext();
-        const { fetchAndStoreImage } = await import('@/lib/artifacts/image-fetch');
-        const result = await fetchAndStoreImage(projectId, url, name);
+        const { downloadImageFromUrl } = await import('@/lib/ai/agents/web-search');
+        const { buffer, mimeType } = await downloadImageFromUrl(url);
+
+        const { createAsset } = await import('@/lib/artifacts/service');
+        const result = await createAsset({
+          projectId,
+          name,
+          type: 'image',
+          mimeType,
+          body: buffer,
+          metadata: {
+            status: 'ready',
+            source: {
+              provider: 'web',
+              model: 'fetch',
+              prompt: url,
+              params: { url },
+            },
+          },
+        });
 
         return {
           assetId: result.id,
-          name: result.name,
-          mimeType: result.mimeType,
+          name,
+          mimeType,
           sizeBytes: result.sizeBytes,
-          message: `Downloaded "${result.name}" (${result.sizeBytes} bytes). Asset ID: ${result.id}. You can now pass this assetId to composeFromTemplate.`,
+          message: `Downloaded "${name}" (${result.sizeBytes} bytes). Asset ID: ${result.id}. You can now pass this assetId to composeFromTemplate.`,
         };
       },
     }),
@@ -132,7 +152,7 @@ export function createDesignAgentTools() {
         style: z.enum(['flat', 'vector', 'isometric', 'realistic', 'minimalist']).default('vector'),
       }),
       execute: async ({ prompt, style }) => {
-        const { projectId, userId } = getToolContext();
+        const { projectId } = getToolContext();
         const { getEnv } = await import('@/lib/env');
         const env = getEnv();
 
@@ -140,15 +160,18 @@ export function createDesignAgentTools() {
           throw new Error('Image generation requires an OPENROUTER_API_KEY.');
         }
 
-        const { generateImageWithBudget } = await import('@/lib/artifacts/generate');
+        const { generateImageForProject } = await import('@/lib/ai/agents/image-gen');
         const styledPrompt = `${prompt}, ${style} style, clean background, high resolution, digital art`;
-        const result = await generateImageWithBudget(projectId, userId, styledPrompt);
+        const result = await generateImageForProject({
+          projectId,
+          prompt: styledPrompt,
+        });
+
+        const assetId = result.assetIds[0];
 
         return {
-          assetId: result.assetId,
-          imageUrl: result.imageUrl,
-          costCents: result.costCents,
-          message: `Image generated and saved as asset "${result.assetId}". You can trace it to SVG vector paths using traceImage.`,
+          assetId,
+          message: `Image generated and saved as asset "${assetId}". You can trace it to SVG vector paths using traceImage.`,
         };
       },
     }),
