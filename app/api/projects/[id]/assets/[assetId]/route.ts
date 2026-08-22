@@ -2,41 +2,40 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { getAsset, getAssetBuffer } from '@/lib/artifacts/service';
 import { getAuthorizedProject } from '@/lib/projects/server';
-import { isR2Configured, getSignedDownloadUrl } from '@/lib/storage/r2';
 
 interface Params {
   params: Promise<{ id: string; assetId: string }>;
 }
 
 /**
- * GET /api/projects/[id]/assets/[assetId] — Download or redirect to asset
+ * GET /api/projects/[id]/assets/[assetId] — Serve or download asset
  *
- * If R2 is configured, returns a 302 redirect to a signed URL.
- * If R2 is not configured (dev), streams the buffer directly.
+ * Streams the asset buffer directly from R2/storage through the server.
+ * This guarantees same-origin delivery without CORS redirect errors in browser fetch() and canvas editors.
  */
-export async function GET(_request: NextRequest, { params }: Params) {
+export async function GET(request: NextRequest, { params }: Params) {
   try {
     const { id: projectId, assetId } = await params;
     await getAuthorizedProject(projectId);
 
     const asset = await getAsset(projectId, assetId);
+    const { searchParams } = new URL(request.url);
+    const isDownload = searchParams.get('download') === '1' || searchParams.get('download') === 'true';
 
-    // If R2 is configured, redirect to a signed URL
-    if (isR2Configured()) {
-      const url = await getSignedDownloadUrl(asset.url, 900);
-      return NextResponse.redirect(url);
-    }
-
-    // Dev fallback: stream the buffer directly
+    // Stream buffer directly through Next.js server to prevent CORS breakage on cross-origin R2 redirects
     const buffer = await getAssetBuffer(assetId);
 
-    return new NextResponse(buffer, {
-      headers: {
-        'Content-Type': asset.mimeType ?? 'application/octet-stream',
-        'Content-Length': buffer.length.toString(),
-        'Cache-Control': 'private, no-cache',
-      },
-    });
+    const headers: Record<string, string> = {
+      'Content-Type': asset.mimeType ?? 'application/octet-stream',
+      'Content-Length': buffer.length.toString(),
+      'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
+    };
+
+    if (isDownload) {
+      headers['Content-Disposition'] = `attachment; filename="${asset.name}"`;
+    }
+
+    return new NextResponse(new Uint8Array(buffer), { headers });
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: error.message || 'Failed to get asset' },
