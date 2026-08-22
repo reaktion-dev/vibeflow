@@ -24,6 +24,10 @@ interface WorkspaceStore {
   setShowGallery: (show: boolean) => void;
   toggleGallery: () => void;
 
+  // Content workspace — design mode ('view' = preview stage + chat; 'edit' = full studio editor + inspector)
+  designMode: 'view' | 'edit';
+  setDesignMode: (mode: 'view' | 'edit') => void;
+
   // IDE — selected file
   selectedFile: string | null;
   setSelectedFile: (path: string | null) => void;
@@ -50,6 +54,9 @@ export const useWorkspaceStore = create<WorkspaceStore>()((set) => ({
   showGallery: true,
   setShowGallery: (show) => set({ showGallery: show }),
   toggleGallery: () => set((state) => ({ showGallery: !state.showGallery })),
+
+  designMode: 'view',
+  setDesignMode: (mode) => set({ designMode: mode }),
 
   selectedFile: null,
   setSelectedFile: (path) => set({ selectedFile: path }),

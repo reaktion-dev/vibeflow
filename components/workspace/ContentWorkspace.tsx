@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, Images, MessageSquare, Palette, Video, Workf
 import { ChatPanel } from '@/components/ai/chat-panel/ChatPanel';
 import { ArtifactGallery } from '@/components/workspace/ArtifactGallery';
 import { ArtifactPreview } from '@/components/workspace/ArtifactPreview';
-import { VectorMiniEditor } from '@/components/workspace/editor/VectorMiniEditor';
+import { VectorDesignStudio } from '@/components/workspace/design/VectorDesignStudio';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useWorkspaceStore } from '@/stores/workspace-store';
@@ -51,6 +51,9 @@ export function ContentWorkspace({
   const toggleGallery = useWorkspaceStore((s) => s.toggleGallery);
   const selectedAsset = useWorkspaceStore((s) => s.selectedAsset);
   const setSelectedAsset = useWorkspaceStore((s) => s.setSelectedAsset);
+  const designMode = useWorkspaceStore((s) => s.designMode);
+  const setDesignMode = useWorkspaceStore((s) => s.setDesignMode);
+
   const config = workspaceConfig[projectType];
 
   useEffect(() => {
@@ -75,23 +78,27 @@ export function ContentWorkspace({
 
   const isSvgAsset =
     selectedAsset?.type === 'svg' ||
-    selectedAsset?.mimeType === 'image/svg+xml';
+    selectedAsset?.mimeType === 'image/svg+xml' ||
+    selectedAsset?.name.endsWith('.svg');
 
   const assetUrl = selectedAsset
     ? `/api/projects/${projectId}/assets/${selectedAsset.id}`
     : null;
 
+  // In edit mode in design workspace, the layout evolves: the left column becomes the Studio Inspector
+  const isEditingStudio = projectType === 'design' && designMode === 'edit' && isSvgAsset;
+
   return (
     <div className="relative flex h-full w-full bg-background overflow-hidden">
-      {/* Left Column: Chat Sidebar (No duplicate headers!) */}
-      {showChat && (
+      {/* ── Left Column: Chat Sidebar (shown in View mode when showChat is true) ── */}
+      {!isEditingStudio && showChat && (
         <aside className="w-80 sm:w-96 lg:w-[400px] border-r border-border bg-card flex flex-col shrink-0 min-h-0 relative z-20">
           <ChatPanel projectId={projectId} projectType={projectType} />
         </aside>
       )}
 
       {/* Chat toggle button when collapsed */}
-      {!showChat && (
+      {!isEditingStudio && !showChat && (
         <button
           type="button"
           onClick={() => setShowChat(true)}
@@ -104,28 +111,17 @@ export function ContentWorkspace({
         </button>
       )}
 
-      {/* Main Right Area — Clean Canvas Surface */}
-      <main className="flex flex-1 flex-col overflow-hidden min-w-0 bg-background">
-        {/* Compact Canvas Toolbar */}
-        <div className="h-10 border-b border-border/60 bg-card/70 backdrop-blur-sm px-3 flex items-center justify-between gap-2 shrink-0 z-10">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-foreground">
-              {config.label} Canvas
-            </span>
-            {selectedAsset && (
-              <span className="text-[11px] text-muted-foreground font-mono truncate max-w-xs">
-                / {selectedAsset.name}
-              </span>
-            )}
-          </div>
-
-          <div className="flex items-center gap-1.5">
+      {/* ── Main Canvas & Studio Area ── */}
+      <main className="flex flex-1 flex-col overflow-hidden min-w-0 bg-background relative">
+        {/* Floating Artifacts Toggle (Always available in top right) */}
+        {!isEditingStudio && (
+          <div className="absolute top-2 right-3 z-20">
             <Button
               variant="ghost"
               size="sm"
               className={cn(
-                'h-7 px-2.5 text-xs gap-1.5 transition-colors',
-                showGallery ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'
+                'h-7 px-2.5 text-xs gap-1.5 transition-colors border border-border/60 backdrop-blur-sm',
+                showGallery ? 'bg-card text-foreground shadow-2xs' : 'bg-card/70 text-muted-foreground hover:text-foreground'
               )}
               onClick={toggleGallery}
               title="Toggle Project Artifacts Drawer"
@@ -134,12 +130,12 @@ export function ContentWorkspace({
               <span>Artifacts</span>
             </Button>
           </div>
-        </div>
+        )}
 
-        {/* Gallery + Preview/Editor */}
+        {/* Gallery Drawer + Main Canvas Surface */}
         <div className="relative flex flex-1 overflow-hidden">
           {/* Artifact Gallery Panel */}
-          {showGallery && (
+          {showGallery && !isEditingStudio && (
             <div
               className={cn(
                 'flex flex-col border-r border-border bg-card shrink-0 z-20',
@@ -171,14 +167,17 @@ export function ContentWorkspace({
             </div>
           )}
 
-          {/* Preview / Mini-Editor Surface */}
-          <div className="flex-1 overflow-hidden bg-muted/10 relative">
+          {/* Canvas Body */}
+          <div className="flex-1 overflow-hidden relative">
             {selectedAsset && assetUrl ? (
               isSvgAsset ? (
-                <VectorMiniEditor
+                <VectorDesignStudio
                   svgUrl={assetUrl}
                   assetId={selectedAsset.id}
+                  assetName={selectedAsset.name}
                   projectId={projectId}
+                  mode={designMode}
+                  onModeChange={setDesignMode}
                 />
               ) : (
                 <ArtifactPreview
