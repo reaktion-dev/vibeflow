@@ -9,6 +9,7 @@ import {
   Palette,
   Video,
   Workflow,
+  FileText,
   Images,
   ArrowLeft,
 } from 'lucide-react';
@@ -20,7 +21,7 @@ import { ProjectOverviewHUD } from '@/components/workspace/ProjectOverviewHUD';
 import { BudgetBar } from '@/components/workspace/BudgetBar';
 import { cn } from '@/lib/utils';
 
-export type WorkspaceTab = 'overview' | 'code' | 'design' | 'video' | 'flow' | 'artifacts';
+export type WorkspaceTab = 'overview' | 'code' | 'design' | 'office' | 'video' | 'flow' | 'artifacts';
 
 interface UnifiedProjectShellProps {
   projectId: string;
@@ -53,6 +54,12 @@ const TABS: {
     color: 'text-purple-500',
   },
   {
+    id: 'office',
+    label: 'Office',
+    icon: FileText as any,
+    color: 'text-indigo-500',
+  },
+  {
     id: 'video',
     label: 'Video',
     icon: Video,
@@ -83,9 +90,9 @@ export function UnifiedProjectShell({
 
   // Default to tab in URL -> initialType -> fallback to 'overview'
   const defaultTab = (
-    ['overview', 'code', 'design', 'video', 'flow', 'artifacts'].includes(tabParam ?? '')
+    ['overview', 'code', 'design', 'office', 'video', 'flow', 'artifacts'].includes(tabParam ?? '')
       ? tabParam
-      : ['code', 'design', 'video', 'flow', 'artifacts'].includes(initialType)
+      : ['code', 'design', 'office', 'video', 'flow', 'artifacts'].includes(initialType)
       ? initialType
       : 'overview'
   ) as WorkspaceTab;
@@ -182,6 +189,16 @@ export function UnifiedProjectShell({
               projectId={projectId}
               projectName={projectName}
               projectType="design"
+            />
+          </div>
+        )}
+
+        {activeTab === 'office' && (
+          <div className="h-full w-full">
+            <ContentWorkspace
+              projectId={projectId}
+              projectName={projectName}
+              projectType="office"
             />
           </div>
         )}

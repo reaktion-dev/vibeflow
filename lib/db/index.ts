@@ -8,9 +8,24 @@ if (!connectionString) {
   throw new Error("DATABASE_URL environment variable is not set");
 }
 
-const pool = new Pool({
-  connectionString,
-  ssl: process.env.NODE_ENV === "production" ? true : { rejectUnauthorized: false },
-});
+declare global {
+  // eslint-disable-next-line no-var
+  var __dbPool: Pool | undefined;
+}
+
+const pool =
+  globalThis.__dbPool ??
+  new Pool({
+    connectionString,
+    ssl: process.env.NODE_ENV === "production" ? true : { rejectUnauthorized: false },
+    max: 10,
+    idleTimeoutMillis: 20000,
+    connectionTimeoutMillis: 10000,
+    keepAlive: true,
+  });
+
+if (process.env.NODE_ENV !== "production") {
+  globalThis.__dbPool = pool;
+}
 
 export const db = drizzle(pool, { schema });

@@ -12,6 +12,7 @@ import {
   Palette,
   Video,
   Workflow,
+  FileText,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { InputGroupAddon } from '@/components/ui/input-group';
@@ -24,7 +25,7 @@ import {
 } from '@/components/ai-elements/prompt-input';
 import { cn } from '@/lib/utils';
 
-export type WorkspaceType = 'code' | 'design' | 'video' | 'flow';
+export type WorkspaceType = 'code' | 'design' | 'office' | 'video' | 'flow';
 
 const MODALITY_CONFIG: Record<
   WorkspaceType,
@@ -61,6 +62,19 @@ const MODALITY_CONFIG: Record<
       { name: 'Flat Vector', icon: '🎨' },
       { name: 'Brand Identity', icon: '🏷️' },
       { name: 'Dark Mode UI', icon: '🌙' },
+    ],
+  },
+  office: {
+    label: 'Office Studio',
+    icon: FileText as any,
+    color: 'text-indigo-500',
+    placeholder: 'Draft an enterprise RFP, SaaS financial model spreadsheet, or 16:9 pitch deck...',
+    chips: [
+      { name: 'RFP / RFQ', icon: '📦' },
+      { name: 'Financial Model', icon: '📊' },
+      { name: 'Pitch Deck', icon: '📽️' },
+      { name: 'Proposal', icon: '🤝' },
+      { name: 'Executive Memo', icon: '📄' },
     ],
   },
   video: {

@@ -40,6 +40,7 @@ export async function GET(request: NextRequest, { params }: Params) {
         mimeType: a.mimeType,
         sizeBytes: a.sizeBytes,
         status: metadata.status ?? 'ready',
+        metadata,
         createdAt: a.createdAt,
       };
     });

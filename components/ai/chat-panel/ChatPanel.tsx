@@ -13,7 +13,7 @@ import { ChatPanelHeader } from './ChatPanelHeader';
 
 interface ChatPanelProps {
   projectId: string;
-  projectType?: 'code' | 'design' | 'video' | 'flow';
+  projectType?: 'code' | 'design' | 'video' | 'flow' | 'office';
   currentFile?: string;
 }
 

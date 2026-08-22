@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Download, Loader2, Maximize2, ZoomIn, ZoomOut } from 'lucide-react';
+import { Download, Loader2, Maximize2, ZoomIn, ZoomOut, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { useOfficeStore } from '@/lib/office-tool/useOfficeStore';
 import toast from 'react-hot-toast';
 
 /**
@@ -266,6 +267,36 @@ export function ArtifactPreview({
               }}
             />
           )
+        ) : displayType === 'document' || displayName.endsWith('.pdf') || displayName.endsWith('.docx') || displayName.endsWith('.xlsx') || displayName.endsWith('.pptx') ? (
+          <div className="flex flex-col items-center justify-center p-8 rounded-2xl border border-border/60 bg-card/70 max-w-md text-center shadow-lg backdrop-blur-xs">
+            <div className="size-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center mb-4 text-indigo-400">
+              <FileText className="size-7" />
+            </div>
+            <h3 className="text-base font-semibold text-foreground">{displayName}</h3>
+            <p className="text-xs text-muted-foreground mt-1 mb-5">
+              Structured document asset with vector typography, live formula ledgers, and export models.
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                onClick={() => {
+                  toast.success(`Opened "${displayName}" in Document Studio Canvas`);
+                }}
+                className="bg-indigo-600 hover:bg-indigo-500 text-white gap-2 text-xs h-9 px-4 shadow-sm"
+              >
+                <FileText className="size-4" />
+                Open in Studio Canvas
+              </Button>
+              {asset?.url && (
+                <Button variant="outline" asChild className="h-9 px-4 text-xs gap-1.5">
+                  <a href={asset.url} target="_blank" rel="noreferrer">
+                    <Download className="size-3.5" />
+                    Download
+                  </a>
+                </Button>
+              )}
+            </div>
+          </div>
         ) : (
           <div className="text-center text-muted-foreground">
             <p className="text-sm">Unable to preview this asset type</p>

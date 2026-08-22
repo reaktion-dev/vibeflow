@@ -11,7 +11,7 @@ import { AVAILABLE_CHAT_MODELS } from '@/lib/ai/chat-models';
 
 interface UseProjectAgentChatOptions {
   projectId: string;
-  projectType?: 'code' | 'design' | 'video' | 'flow';
+  projectType?: 'code' | 'design' | 'video' | 'flow' | 'office';
   currentFile?: string;
 }
 

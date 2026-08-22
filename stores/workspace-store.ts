@@ -19,6 +19,10 @@ interface WorkspaceStore {
   selectedAsset: SelectedAsset | null;
   setSelectedAsset: (asset: SelectedAsset | null) => void;
 
+  // Content workspace — sidebar tab ('chat' | 'artifacts')
+  sidebarTab: 'chat' | 'artifacts';
+  setSidebarTab: (tab: 'chat' | 'artifacts') => void;
+
   // Content workspace — artifact gallery panel
   showGallery: boolean;
   setShowGallery: (show: boolean) => void;
@@ -50,6 +54,9 @@ interface WorkspaceStore {
 export const useWorkspaceStore = create<WorkspaceStore>()((set) => ({
   selectedAsset: null,
   setSelectedAsset: (asset) => set({ selectedAsset: asset }),
+
+  sidebarTab: 'chat',
+  setSidebarTab: (tab) => set({ sidebarTab: tab }),
 
   showGallery: true,
   setShowGallery: (show) => set({ showGallery: show }),

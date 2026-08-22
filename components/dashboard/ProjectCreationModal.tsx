@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Code2, Palette, Video, Workflow, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Code2, Palette, Video, Workflow, FileText, ArrowRight, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import toast from 'react-hot-toast';
@@ -14,7 +14,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 
-type WorkspaceType = 'code' | 'design' | 'video' | 'flow';
+type WorkspaceType = 'code' | 'design' | 'video' | 'flow' | 'office';
 
 interface ProjectCreationModalProps {
   isOpen: boolean;
@@ -45,6 +45,14 @@ const WORKSPACE_TYPES: {
     icon: Palette,
     color: 'text-purple-500',
     bgColor: 'bg-purple-500/10',
+  },
+  {
+    id: 'office',
+    label: 'Office Studio',
+    description: 'Professional document, spreadsheet, and presentation authoring',
+    icon: FileText as any,
+    color: 'text-indigo-500',
+    bgColor: 'bg-indigo-500/10',
   },
   {
     id: 'video',

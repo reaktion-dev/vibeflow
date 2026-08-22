@@ -27,6 +27,10 @@ const nextConfig = {
     'sharp',
     '@resvg/resvg-js',
     'pixi.js',
+    'docx',
+    'exceljs',
+    'pptxgenjs',
+    '@react-pdf/renderer',
   ],
 }
 

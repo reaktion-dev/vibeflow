@@ -17,12 +17,14 @@ import { getHarnessErrorMessage } from '@ai-sdk/harness/agent';
 import { createProjectAgent } from '@/lib/ai/agents/project-agent';
 import { createContentAgent } from '@/lib/ai/agents/content-agent';
 import { createDesignAgent } from '@/lib/ai/agents/design';
+import { createOfficeAgent } from '@/lib/ai/agents/office/agent';
 import { getAuthorizedProject } from '@/lib/projects/server';
 import { runWithToolContext } from '@/lib/ai/harness/tools/context';
 import { db } from '@/lib/db';
 import { conversations, chatMessages } from '@/lib/db/schema';
 import { getProjectBudget, BudgetExceededError } from '@/lib/budget/service';
 import { extractLatestUserPrompt } from '@/lib/ai/chat-transport';
+import { resolveMentionRoute } from '@/lib/ai/orchestration';
 
 // Allow sufficient time for sandbox boot + OpenCode bootstrap + agent turn
 export const maxDuration = 120;
@@ -247,8 +249,26 @@ export async function POST(request: NextRequest, { params }: Params) {
     // Convert UI messages to model messages (used by ToolLoopAgent and content agent)
     const modelMessages = await convertToModelMessages(body.messages);
 
-    // Route to the correct agent based on project type
-    const isCodeProject = project.type === 'code';
+    // ── Intelligent Multi-Agent Mention & Intent Router ──
+    const mentionRoute = resolveMentionRoute(latestPrompt || '');
+    const isExplicitOffice = mentionRoute.isExplicitMention && mentionRoute.targetAgent.role === 'office';
+    const isExplicitDesign = mentionRoute.isExplicitMention && mentionRoute.targetAgent.role === 'designer';
+    const isExplicitCoder = mentionRoute.isExplicitMention && mentionRoute.targetAgent.role === 'coder';
+    const isExplicitVideo = mentionRoute.isExplicitMention && mentionRoute.targetAgent.role === 'video';
+    const isExplicitFlow = mentionRoute.isExplicitMention && mentionRoute.targetAgent.role === 'flow';
+
+    const isDocumentIntent =
+      /(utility bill|invoice|tax invoice|statement|municipal|resume|curriculum vitae|\bcv\b|whitepaper|spreadsheet|financial model|\bexcel\b|\bxlsx\b|\bdocx\b|\bpptx\b|pitch deck|slide deck|proposal|sow|contract|agreement|datasheet)/i.test(
+        latestPrompt || ''
+      );
+
+    const routeToOffice =
+      isExplicitOffice ||
+      project.type === 'office' ||
+      (isDocumentIntent && !isExplicitDesign && !isExplicitCoder && project.type !== 'code');
+
+    // Route to the correct agent based on project type and mention
+    const isCodeProject = (project.type === 'code' || isExplicitCoder) && !routeToOffice;
 
     // Wrap in runWithToolContext so host-executed workspace tools
     // (listAssets, getAssetUrl, bundleStaticPreview, checkBudget)
@@ -259,7 +279,29 @@ export async function POST(request: NextRequest, { params }: Params) {
         createUIMessageStreamResponse({
           stream: createUIMessageStream({
             execute: async ({ writer }) => {
-              if (isCodeProject) {
+              if (routeToOffice) {
+                // ── Office & Document Specialist Swarm (@office) ──
+                const agent = createOfficeAgent({
+                  id: project.id,
+                  name: project.name,
+                  description: project.description,
+                });
+
+                const result = await agent.stream({
+                  messages: modelMessages,
+                  options: { model: body.model },
+                });
+
+                writer.merge(
+                  toUIMessageStream({
+                    stream: result.stream,
+                    onError: (error) => {
+                      console.error('[vibeflow] Office agent stream error:', error);
+                      return formatStreamError(error);
+                    },
+                  })
+                );
+              } else if (isCodeProject) {
                 // ── Code projects: HarnessAgent (OpenCode + sandbox) ──
                 // Try HarnessAgent first; fall back to ToolLoopAgent on failure.
                 try {
@@ -351,7 +393,7 @@ export async function POST(request: NextRequest, { params }: Params) {
                     );
                   }
                 }
-              } else if (project.type === 'design') {
+              } else if (project.type === 'design' || isExplicitDesign) {
                 // ── Design projects: Dedicated Design Agent (Template Engine + Art Director) ──
                 const agent = createDesignAgent({
                   id: project.id,
@@ -378,7 +420,7 @@ export async function POST(request: NextRequest, { params }: Params) {
                 const agent = createContentAgent({
                   id: project.id,
                   name: project.name,
-                  type: project.type as 'video' | 'flow',
+                  type: (isExplicitVideo ? 'video' : isExplicitFlow ? 'flow' : project.type) as 'video' | 'flow',
                   description: project.description,
                 });
 

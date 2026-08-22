@@ -1,16 +1,18 @@
 'use client';
 
 import { useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Images, MessageSquare, Palette, Video, Workflow } from 'lucide-react';
+import { ChevronLeft, Images, MessageSquare, Palette, Video, Workflow, FileText } from 'lucide-react';
 import { ChatPanel } from '@/components/ai/chat-panel/ChatPanel';
 import { ArtifactGallery } from '@/components/workspace/ArtifactGallery';
 import { ArtifactPreview } from '@/components/workspace/ArtifactPreview';
-import { VectorDesignStudio } from '@/components/workspace/design/VectorDesignStudio';
+import { DesignStudioRoot } from '@/components/workspace/design/DesignStudioRoot';
+import { OfficeStudioRoot } from '@/components/workspace/office/OfficeStudioRoot';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useWorkspaceStore } from '@/stores/workspace-store';
+import { useOfficeStore } from '@/lib/office-tool/useOfficeStore';
 
-type ProjectType = 'design' | 'video' | 'flow';
+type ProjectType = 'design' | 'video' | 'flow' | 'office';
 
 interface ContentWorkspaceProps {
   projectId: string;
@@ -37,6 +39,11 @@ const workspaceConfig: Record<
     icon: Workflow,
     accent: 'from-green-500 to-emerald-500',
   },
+  office: {
+    label: 'Office Studio',
+    icon: FileText as any,
+    accent: 'from-blue-600 to-indigo-600',
+  },
 };
 
 export function ContentWorkspace({
@@ -46,9 +53,8 @@ export function ContentWorkspace({
 }: ContentWorkspaceProps) {
   const showChat = useWorkspaceStore((s) => s.showChat);
   const setShowChat = useWorkspaceStore((s) => s.setShowChat);
-  const showGallery = useWorkspaceStore((s) => s.showGallery);
-  const setShowGallery = useWorkspaceStore((s) => s.setShowGallery);
-  const toggleGallery = useWorkspaceStore((s) => s.toggleGallery);
+  const sidebarTab = useWorkspaceStore((s) => s.sidebarTab);
+  const setSidebarTab = useWorkspaceStore((s) => s.setSidebarTab);
   const selectedAsset = useWorkspaceStore((s) => s.selectedAsset);
   const setSelectedAsset = useWorkspaceStore((s) => s.setSelectedAsset);
   const designMode = useWorkspaceStore((s) => s.designMode);
@@ -59,13 +65,18 @@ export function ContentWorkspace({
   useEffect(() => {
     if (window.matchMedia('(max-width: 1023.98px)').matches) {
       setShowChat(false);
-      setShowGallery(false);
     }
-  }, [setShowChat, setShowGallery]);
+  }, [setShowChat]);
 
   const handleSelectAsset = (
     assetId: string,
-    asset: { name: string; type: string; mimeType?: string | null; sizeBytes?: number | null }
+    asset: {
+      name: string;
+      type: string;
+      mimeType?: string | null;
+      sizeBytes?: number | null;
+      metadata?: any;
+    }
   ) => {
     setSelectedAsset({
       id: assetId,
@@ -74,6 +85,26 @@ export function ContentWorkspace({
       mimeType: asset.mimeType,
       sizeBytes: asset.sizeBytes ?? null,
     });
+
+    const isDoc =
+      asset.type === 'document' ||
+      asset.name.endsWith('.pdf') ||
+      asset.name.endsWith('.docx') ||
+      asset.name.endsWith('.xlsx') ||
+      asset.name.endsWith('.pptx');
+
+    if (isDoc && asset.metadata?.model) {
+      const docType =
+        asset.metadata?.docType === 'spreadsheet' || asset.name.endsWith('.xlsx')
+          ? 'spreadsheet'
+          : asset.metadata?.docType === 'presentation' || asset.name.endsWith('.pptx')
+          ? 'presentation'
+          : 'document';
+      useOfficeStore.getState().loadDocument({
+        type: docType,
+        model: asset.metadata.model,
+      });
+    }
   };
 
   const isSvgAsset =
@@ -81,82 +112,75 @@ export function ContentWorkspace({
     selectedAsset?.mimeType === 'image/svg+xml' ||
     selectedAsset?.name.endsWith('.svg');
 
+  const isDocumentAsset =
+    selectedAsset?.type === 'document' ||
+    selectedAsset?.name.endsWith('.pdf') ||
+    selectedAsset?.name.endsWith('.docx') ||
+    selectedAsset?.name.endsWith('.xlsx') ||
+    selectedAsset?.name.endsWith('.pptx');
+
   const assetUrl = selectedAsset
     ? `/api/projects/${projectId}/assets/${selectedAsset.id}`
     : null;
 
-  // In edit mode in design workspace, the layout evolves: the left column becomes the Studio Inspector
-  const isEditingStudio = projectType === 'design' && designMode === 'edit' && isSvgAsset;
+  // In edit mode in design or office workspace, the layout evolves: the left column becomes the Studio Inspector
+  const isEditingStudio =
+    (projectType === 'design' && designMode === 'edit' && isSvgAsset) ||
+    ((projectType === 'office' || isDocumentAsset) && designMode === 'edit');
 
   return (
     <div className="relative flex h-full w-full bg-background overflow-hidden">
-      {/* ── Left Column: Chat Sidebar (shown in View mode when showChat is true) ── */}
+      {/* ── Unified Left Column: Agent Chat & Artifacts Tabbed Panel ── */}
       {!isEditingStudio && showChat && (
-        <aside className="w-80 sm:w-96 lg:w-[400px] border-r border-border bg-card flex flex-col shrink-0 min-h-0 relative z-20">
-          <ChatPanel projectId={projectId} projectType={projectType} />
-        </aside>
-      )}
+        <aside className="w-80 sm:w-96 lg:w-[380px] border-r border-border bg-card flex flex-col shrink-0 min-h-0 relative z-20">
+          {/* Top Panel Tab Switcher Header */}
+          <div className="flex h-11 items-center justify-between border-b border-border/80 bg-muted/20 px-3 shrink-0">
+            <div className="flex items-center rounded-lg border border-border/70 bg-muted/40 p-0.5 shadow-2xs">
+              <button
+                type="button"
+                onClick={() => setSidebarTab('chat')}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium transition-colors',
+                  sidebarTab === 'chat'
+                    ? 'bg-background text-foreground shadow-2xs font-semibold'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                <MessageSquare className="size-3.5 text-primary" />
+                <span>Chat</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSidebarTab('artifacts')}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium transition-colors',
+                  sidebarTab === 'artifacts'
+                    ? 'bg-background text-foreground shadow-2xs font-semibold'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                <Images className="size-3.5 text-amber-500" />
+                <span>Artifacts</span>
+              </button>
+            </div>
 
-      {/* Chat toggle button when collapsed */}
-      {!isEditingStudio && !showChat && (
-        <button
-          type="button"
-          onClick={() => setShowChat(true)}
-          className="absolute left-0 top-3 z-30 flex h-8 items-center gap-1.5 rounded-r-md border border-l-0 border-border bg-card/90 px-2.5 text-xs text-muted-foreground hover:text-foreground shadow-md backdrop-blur-sm transition-colors"
-          title="Open Agent Chat"
-        >
-          <MessageSquare className="size-3.5 text-primary" />
-          <span>Chat</span>
-          <ChevronRight className="size-3.5" />
-        </button>
-      )}
-
-      {/* ── Main Canvas & Studio Area ── */}
-      <main className="flex flex-1 flex-col overflow-hidden min-w-0 bg-background relative">
-        {/* Floating Artifacts Toggle (Always available in top right) */}
-        {!isEditingStudio && (
-          <div className="absolute top-2 right-3 z-20">
             <Button
               variant="ghost"
-              size="sm"
-              className={cn(
-                'h-7 px-2.5 text-xs gap-1.5 transition-colors border border-border/60 backdrop-blur-sm',
-                showGallery ? 'bg-card text-foreground shadow-2xs' : 'bg-card/70 text-muted-foreground hover:text-foreground'
-              )}
-              onClick={toggleGallery}
-              title="Toggle Project Artifacts Drawer"
+              size="icon-xs"
+              onClick={() => setShowChat(false)}
+              title="Collapse Sidebar"
+              className="size-7 text-muted-foreground hover:text-foreground"
             >
-              <Images className="size-3.5" />
-              <span>Artifacts</span>
+              <ChevronLeft className="size-4" />
             </Button>
           </div>
-        )}
 
-        {/* Gallery Drawer + Main Canvas Surface */}
-        <div className="relative flex flex-1 overflow-hidden">
-          {/* Artifact Gallery Panel */}
-          {showGallery && !isEditingStudio && (
-            <div
-              className={cn(
-                'flex flex-col border-r border-border bg-card shrink-0 z-20',
-                'absolute inset-y-0 left-0 w-64 shadow-xl lg:static lg:w-72 lg:shadow-none'
-              )}
-            >
-              <div className="flex items-center justify-between border-b border-border p-2.5">
-                <div className="flex items-center gap-1.5">
-                  <Images className="size-3.5 text-muted-foreground" />
-                  <h3 className="text-xs font-semibold text-foreground">Artifacts</h3>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  onClick={toggleGallery}
-                  className="size-6"
-                >
-                  <ChevronLeft className="size-3.5" />
-                </Button>
-              </div>
-              <div className="flex-1 overflow-y-auto">
+          {/* Panel Tab Body */}
+          <div className="flex-1 min-h-0 overflow-hidden relative">
+            {sidebarTab === 'chat' ? (
+              <ChatPanel projectId={projectId} projectType={projectType} />
+            ) : (
+              <div className="flex flex-col h-full overflow-y-auto">
                 <ArtifactGallery
                   projectId={projectId}
                   projectType={projectType}
@@ -164,14 +188,54 @@ export function ContentWorkspace({
                   onSelect={handleSelectAsset}
                 />
               </div>
-            </div>
-          )}
+            )}
+          </div>
+        </aside>
+      )}
 
-          {/* Canvas Body */}
-          <div className="flex-1 overflow-hidden relative">
-            {selectedAsset && assetUrl ? (
+      {/* Sidebar toggle button when collapsed */}
+      {!isEditingStudio && !showChat && (
+        <div className="absolute left-0 top-3 z-30 flex items-center rounded-r-md border border-l-0 border-border bg-card/95 shadow-md backdrop-blur-sm p-0.5">
+          <button
+            type="button"
+            onClick={() => {
+              setSidebarTab('chat');
+              setShowChat(true);
+            }}
+            className="flex h-7 items-center gap-1.5 rounded-sm px-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+            title="Open Agent Chat"
+          >
+            <MessageSquare className="size-3.5 text-primary" />
+            <span>Chat</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setSidebarTab('artifacts');
+              setShowChat(true);
+            }}
+            className="flex h-7 items-center gap-1.5 rounded-sm px-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors border-l border-border/60"
+            title="Open Artifacts Vault"
+          >
+            <Images className="size-3.5 text-amber-500" />
+            <span>Artifacts</span>
+          </button>
+        </div>
+      )}
+
+      {/* ── Main Canvas & Studio Area (Takes 100% of remaining width) ── */}
+      <main className="flex flex-1 flex-col overflow-hidden min-w-0 bg-background relative">
+        {/* Canvas Body */}
+        <div className="flex-1 overflow-hidden relative">
+            {projectType === 'office' || isDocumentAsset ? (
+              <OfficeStudioRoot
+                projectId={projectId}
+                mode={designMode}
+                onModeChange={setDesignMode}
+              />
+            ) : selectedAsset && assetUrl ? (
               isSvgAsset ? (
-                <VectorDesignStudio
+                <DesignStudioRoot
                   svgUrl={assetUrl}
                   assetId={selectedAsset.id}
                   assetName={selectedAsset.name}
@@ -201,7 +265,6 @@ export function ContentWorkspace({
               </div>
             )}
           </div>
-        </div>
       </main>
     </div>
   );

@@ -44,7 +44,7 @@ export function createDesignAgentTools() {
         const { projectId } = getToolContext();
 
         // 1. Solve layout deterministically
-        const svgString = solveTemplateLayout(slotData);
+        const svgString = solveTemplateLayout(slotData, projectId);
 
         // 2. Persist to project Asset Vault
         const { createAsset } = await import('@/lib/artifacts/service');

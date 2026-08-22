@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { useOfficeStore } from '@/lib/office-tool/useOfficeStore';
 import toast from 'react-hot-toast';
 
 export interface VaultAsset {
@@ -197,12 +198,42 @@ export function ArtifactVault({
                   key={asset.id}
                   onClick={() => {
                     setPreviewAsset(asset);
+                    const isDoc =
+                      asset.type === 'document' ||
+                      asset.name.endsWith('.pdf') ||
+                      asset.name.endsWith('.docx') ||
+                      asset.name.endsWith('.xlsx') ||
+                      asset.name.endsWith('.pptx');
+
+                    if (isDoc) {
+                      let parsedMeta: any = {};
+                      if (typeof asset.metadata === 'string') {
+                        try {
+                          parsedMeta = JSON.parse(asset.metadata);
+                        } catch {}
+                      } else if (asset.metadata) {
+                        parsedMeta = asset.metadata;
+                      }
+                      if (parsedMeta?.model) {
+                        const docType =
+                          parsedMeta?.docType === 'spreadsheet' || asset.name.endsWith('.xlsx')
+                            ? 'spreadsheet'
+                            : parsedMeta?.docType === 'presentation' || asset.name.endsWith('.pptx')
+                            ? 'presentation'
+                            : 'document';
+                        useOfficeStore.getState().loadDocument({
+                          type: docType,
+                          model: parsedMeta.model,
+                        });
+                        toast.success(`Loaded "${parsedMeta.model.title || asset.name}" in Document Studio`);
+                      }
+                    }
                     onSelectAsset?.(asset);
                   }}
                   className="group relative flex flex-col rounded-xl border border-border/60 bg-card/60 overflow-hidden cursor-pointer transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:bg-card hover:shadow-lg"
                 >
                   {/* Asset Thumbnail Preview */}
-                  <div className="flex h-36 w-full items-center justify-center bg-muted/30 p-4 border-b border-border/40">
+                  <div className="flex h-36 w-full items-center justify-center bg-muted/30 p-4 border-b border-border/40 relative">
                     {isSvg ? (
                       <div className="flex h-full w-full items-center justify-center">
                         <img
@@ -217,7 +248,16 @@ export function ArtifactVault({
                     ) : asset.type === 'video' ? (
                       <Video className="h-12 w-12 text-orange-500/70" />
                     ) : asset.type === 'document' ? (
-                      <FileText className="h-12 w-12 text-blue-500/70" />
+                      <div className="flex flex-col items-center gap-1">
+                        <FileText className="h-12 w-12 text-blue-500/70" />
+                        <span className="text-[10px] font-mono text-muted-foreground uppercase">
+                          {asset.name.endsWith('.xlsx')
+                            ? 'Spreadsheet'
+                            : asset.name.endsWith('.pptx')
+                            ? 'Presentation'
+                            : 'Document'}
+                        </span>
+                      </div>
                     ) : (
                       <Images className="h-12 w-12 text-muted-foreground/60" />
                     )}
@@ -236,19 +276,21 @@ export function ArtifactVault({
 
                     <div className="flex items-center justify-between text-[10px] text-muted-foreground mt-2">
                       <span className="font-mono truncate">asset://{asset.name}</span>
-                      <Button
-                        variant="ghost"
-                        size="icon-xs"
-                        onClick={(e) => handleCopyReference(asset, e)}
-                        title="Copy asset reference for agent chat"
-                        className="h-6 w-6"
-                      >
-                        {isCopied ? (
-                          <Check className="h-3 w-3 text-emerald-500" />
-                        ) : (
-                          <Copy className="h-3 w-3" />
-                        )}
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          onClick={(e) => handleCopyReference(asset, e)}
+                          title="Copy asset reference for agent chat"
+                          className="h-6 w-6"
+                        >
+                          {isCopied ? (
+                            <Check className="h-3 w-3 text-emerald-500" />
+                          ) : (
+                            <Copy className="h-3 w-3" />
+                          )}
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </div>

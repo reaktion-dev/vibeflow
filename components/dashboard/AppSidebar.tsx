@@ -13,6 +13,7 @@ import {
   Palette,
   Video,
   Workflow,
+  FileText,
   Images,
   LayoutGrid,
 } from 'lucide-react';
@@ -54,6 +55,7 @@ import { cn } from '@/lib/utils';
 const WORKSPACE_TYPES = [
   { id: 'code', label: 'Code Workspaces', icon: Code2, color: 'text-blue-500' },
   { id: 'design', label: 'Design Canvases', icon: Palette, color: 'text-purple-500' },
+  { id: 'office', label: 'Office Studios', icon: FileText, color: 'text-indigo-500' },
   { id: 'video', label: 'Video Studios', icon: Video, color: 'text-orange-500' },
   { id: 'flow', label: 'Workflow Pipelines', icon: Workflow, color: 'text-green-500' },
 ] as const;
@@ -333,6 +335,19 @@ export function AppSidebar() {
                           >
                             <Palette className="h-3 w-3 text-purple-500 shrink-0" />
                             <span>Vector Design</span>
+                          </Link>
+
+                          <Link
+                            href={`/projects/${project.id}?tab=office`}
+                            className={cn(
+                              'flex items-center gap-1.5 rounded px-2 py-1 text-[11px] transition-colors',
+                              isCurrent && currentTab === 'office'
+                                ? 'bg-indigo-500/15 text-indigo-500 font-medium'
+                                : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground'
+                            )}
+                          >
+                            <FileText className="h-3 w-3 text-indigo-500 shrink-0" />
+                            <span>Office Studio</span>
                           </Link>
 
                           <Link

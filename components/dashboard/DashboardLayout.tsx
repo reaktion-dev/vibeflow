@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode } from 'react';
+import { ReactNode, Suspense } from 'react';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from './AppSidebar';
 import { DashboardTopBar } from './DashboardTopBar';
@@ -25,7 +25,9 @@ export function DashboardLayout({
   return (
     <SidebarProvider>
       <div className="flex h-screen w-full bg-background">
-        <AppSidebar />
+        <Suspense fallback={<div className="w-64 shrink-0 bg-sidebar" />}>
+          <AppSidebar />
+        </Suspense>
         <SidebarInset>
           <DashboardTopBar
             projectName={projectName}

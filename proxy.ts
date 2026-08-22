@@ -8,6 +8,7 @@ const PUBLIC_PREFIXES = [
   "/forgot-password",
   "/reset-password",
   "/api/auth",  // all better-auth API routes
+  "/api/assets", // direct asset image resolver
 ];
 
 /** Exact-match public routes (prefix matching would expose everything under them) */
@@ -43,11 +44,26 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const session = await auth.api.getSession({
-    headers: request.headers,
-  });
+  // Check for Better Auth session cookie before making database calls
+  const sessionCookie =
+    request.cookies.get("better-auth.session_token") ||
+    request.cookies.get("__Secure-better-auth.session_token") ||
+    request.cookies.get("better_auth.session_token") ||
+    request.cookies.get("__Secure-better_auth.session_token");
 
-  const isAuthenticated = !!session;
+  let isAuthenticated = false;
+
+  if (sessionCookie?.value) {
+    try {
+      const session = await auth.api.getSession({
+        headers: request.headers,
+      });
+      isAuthenticated = !!session;
+    } catch (err) {
+      console.warn("[proxy] Session validation error (recovering as unauthenticated):", err);
+      isAuthenticated = false;
+    }
+  }
 
   // Authenticated users visiting auth pages → redirect to app
   if (isAuthenticated && isAuthOnlyRoute(pathname)) {

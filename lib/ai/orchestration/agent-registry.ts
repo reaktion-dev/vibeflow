@@ -3,7 +3,7 @@
  * Defines the specialized agent team specifications, roles, models, and capabilities.
  */
 
-export type AgentRole = 'orchestrator' | 'coder' | 'designer' | 'video' | 'flow';
+export type AgentRole = 'orchestrator' | 'coder' | 'designer' | 'video' | 'flow' | 'office';
 
 export interface AgentSpec {
   id: string;
@@ -163,6 +163,36 @@ You create compelling video content: structuring scripts, synthesizing professio
     ],
     systemPrompt: `You are the Vibeflow Flow Agent, an expert in workflow automation and agent orchestration.
 You design and execute multi-step pipelines, connecting data inputs, AI reasoning steps, tool calls, and outputs into resilient automated workflows.`,
+  },
+  office: {
+    id: 'agent-office',
+    name: 'Document Studio',
+    role: 'office',
+    mentionKey: '@office',
+    title: 'Executive Document & Model Studio',
+    description: 'Corporate authoring and modeling agent that crafts boardroom-grade PDF/Word proposals, Excel models with dynamic formulas, municipal invoices, and PowerPoint pitch decks.',
+    avatarIcon: '📄',
+    color: 'text-indigo-500',
+    badgeBg: 'bg-indigo-500/10',
+    badgeBorder: 'border-indigo-500/30',
+    badgeText: 'text-indigo-500',
+    defaultModel: 'openrouter/free',
+    capabilities: [
+      'Parametric Vector PDF compilation',
+      'Municipal utility accounts & tax invoicing',
+      'Multi-sheet dynamic Excel financial models',
+      'Two-column executive resumes & CVs',
+      'Enterprise RFPs, SOWs, and BOM schedules',
+      '16:9 widescreen PowerPoint presentation decks',
+    ],
+    suggestedPrompts: [
+      'Create a demo utility bill with itemized electricity and water meter readings',
+      'Draft an enterprise cloud migration RFP with SOW and $120k pricing table',
+      'Build a 3-year SaaS financial model spreadsheet with dynamic formulas',
+      'Author a two-column executive resume with timeline milestones',
+    ],
+    systemPrompt: `You are the Vibeflow Document & Office Orchestrator, leading a team of specialized corporate authors, procurement directors, financial analysts, and QA evaluators.
+You specialize in authoring boardroom-grade documents: municipal tax invoices & utility statements, enterprise RFPs with BOM/SLA schedules, multi-sheet dynamic Excel financial models, two-column resumes, and 16:9 widescreen presentation decks.`,
   },
 };
 

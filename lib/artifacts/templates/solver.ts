@@ -113,7 +113,7 @@ function wrapText(text: string, maxCharsPerLine: number = 32): string[] {
  * Deterministic Layout Solver
  * Takes semantic slot data and generates perfectly aligned, non-overlapping SVG markup.
  */
-export function solveTemplateLayout(slotData: DesignSlotData): string {
+export function solveTemplateLayout(slotData: DesignSlotData, projectId?: string): string {
   const template = getTemplateById(slotData.templateId);
   const width = slotData.width || template.width;
   const height = slotData.height || template.height;
@@ -125,7 +125,15 @@ export function solveTemplateLayout(slotData: DesignSlotData): string {
     slotData.subheading ||
     'Build full-stack applications, vector graphics, and video content in unified workspaces.';
   const badge = slotData.badgeText || 'Vibeflow Platform';
-  const visualHref = slotData.visualUrl || (slotData.visualAssetId ? `/api/assets/${slotData.visualAssetId}` : null);
+
+  const pid = slotData.projectId || projectId;
+  const visualHref =
+    slotData.visualUrl ||
+    (slotData.visualAssetId
+      ? pid
+        ? `/api/projects/${pid}/assets/${slotData.visualAssetId}`
+        : `/api/assets/${slotData.visualAssetId}`
+      : null);
 
   let svgBody = '';
 

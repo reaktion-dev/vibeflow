@@ -16,6 +16,7 @@ import {
   Upload,
   Video,
   Workflow,
+  FileText,
   Images,
   Layers,
 } from 'lucide-react';
@@ -55,7 +56,7 @@ import { ProjectCreationModal } from './ProjectCreationModal';
 import { DashboardHero } from './DashboardHero';
 import { DashboardPromptArea, type WorkspaceType } from './DashboardPromptArea';
 
-type ProjectType = 'code' | 'design' | 'video' | 'flow';
+type ProjectType = 'code' | 'design' | 'office' | 'video' | 'flow';
 type ProjectStatus = 'active' | 'archived' | 'deleted';
 
 interface Project {
@@ -93,6 +94,12 @@ const TYPE_META: Record<
     icon: Palette,
     color: 'text-purple-500',
     bgColor: 'bg-purple-500/10',
+  },
+  office: {
+    label: 'Office',
+    icon: FileText as any,
+    color: 'text-indigo-500',
+    bgColor: 'bg-indigo-500/10',
   },
   video: {
     label: 'Video',
@@ -155,7 +162,7 @@ const QUICK_STARTS: {
   },
 ];
 
-const PROJECT_TYPES: ProjectType[] = ['code', 'design', 'video', 'flow'];
+const PROJECT_TYPES: ProjectType[] = ['code', 'design', 'office', 'video', 'flow'];
 
 function formatShortDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, {

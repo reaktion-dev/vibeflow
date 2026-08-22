@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { getProject } from "@/app/actions/projects";
 import { UnifiedProjectShell } from "@/components/workspace/UnifiedProjectShell";
@@ -21,10 +22,12 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
   }
 
   return (
-    <UnifiedProjectShell
-      projectId={id}
-      projectName={project.name}
-      initialType={project.type}
-    />
+    <Suspense fallback={null}>
+      <UnifiedProjectShell
+        projectId={id}
+        projectName={project.name}
+        initialType={project.type}
+      />
+    </Suspense>
   );
 }

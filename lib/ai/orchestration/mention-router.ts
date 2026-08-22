@@ -14,9 +14,9 @@ export interface MentionRouteResult {
 }
 
 /**
- * Regex matching `@agent` tokens (e.g. @coder, @designer, @video, @flow, @orchestrator)
+ * Regex matching `@agent` tokens (e.g. @coder, @designer, @video, @flow, @office, @orchestrator)
  */
-const MENTION_REGEX = /@(orchestrator|coder|designer|video|flow)\b/gi;
+const MENTION_REGEX = /@(orchestrator|coder|designer|video|flow|office|document)\b/gi;
 
 /**
  * Parses user prompt text to resolve target agent and all mentioned agents.

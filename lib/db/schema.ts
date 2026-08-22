@@ -19,6 +19,7 @@ export const projectTypeEnum = pgEnum("project_type", [
   "design",
   "video",
   "flow",
+  "office",
 ]);
 
 export const projectStatusEnum = pgEnum("project_status", [
@@ -33,6 +34,7 @@ export const agentRoleEnum = pgEnum("agent_role", [
   "video",
   "orchestrator",
   "general",
+  "office",
 ]);
 
 export const conversationStatusEnum = pgEnum("conversation_status", [

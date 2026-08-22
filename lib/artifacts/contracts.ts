@@ -35,22 +35,24 @@ export const assetSourceSchema = z.object({
   params: z.record(z.string(), z.unknown()).optional(),
 });
 
-export const assetMetadataSchema = z.object({
-  status: assetStatusEnum.default('pending'),
-  source: assetSourceSchema.optional(),
-  costMicros: z.number().int().nonnegative().default(0),
-  approvals: z
-    .array(
-      z.object({
-        approved: z.boolean(),
-        approvedAt: z.string().optional(),
-        reason: z.string().optional(),
-      })
-    )
-    .default([]),
-  // Free-form per-type metadata (dimensions, duration, etc.)
-  extra: z.record(z.string(), z.unknown()).optional(),
-});
+export const assetMetadataSchema = z
+  .object({
+    status: assetStatusEnum.default('pending'),
+    source: assetSourceSchema.optional(),
+    costMicros: z.number().int().nonnegative().default(0),
+    approvals: z
+      .array(
+        z.object({
+          approved: z.boolean(),
+          approvedAt: z.string().optional(),
+          reason: z.string().optional(),
+        })
+      )
+      .default([]),
+    // Free-form per-type metadata (dimensions, duration, etc.)
+    extra: z.record(z.string(), z.unknown()).optional(),
+  })
+  .passthrough();
 
 // ─── Asset Record (the full row as stored in DB) ────────────────────────────────
 

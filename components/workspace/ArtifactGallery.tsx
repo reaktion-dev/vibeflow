@@ -31,6 +31,7 @@ interface GalleryAsset {
   status: string;
   mimeType?: string | null;
   sizeBytes?: number | null;
+  metadata?: any;
   createdAt: string;
 }
 

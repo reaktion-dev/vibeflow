@@ -29,6 +29,8 @@ export interface DesignSlotData {
   visualUrl?: string;
   /** Background theme style */
   theme?: 'dark-navy' | 'deep-obsidian' | 'clean-light' | 'gradient-mesh' | 'sunset-glow' | 'cyberpunk';
+  /** Project ID context for asset URLs */
+  projectId?: string;
   /** Primary accent color hex (e.g., "#3b82f6", "#f97316") */
   accentColor?: string;
   /** Custom canvas width in pixels (defaults to template preset) */
@@ -50,6 +52,7 @@ export const designSlotDataSchema = z.object({
   badgeText: z.string().optional().describe('Category or tag badge (e.g. "Artificial Intelligence")'),
   visualAssetId: z.string().optional().describe('R2 asset ID of the hero image/icon to place'),
   visualUrl: z.string().optional().describe('Direct image URL to fetch if not yet stored as asset'),
+  projectId: z.string().optional().describe('Active project ID'),
   theme: z.enum([
     'dark-navy',
     'deep-obsidian',
